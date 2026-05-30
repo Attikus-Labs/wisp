@@ -53,4 +53,17 @@ struct ClipboardHistoryTests {
         #expect(history[1] == nil)
         #expect(history[-1] == nil)
     }
+
+    @Test func equalityIgnoresHTML() {
+        // Dedup is by text, so a re-copy with/without formatting is "the same".
+        #expect(ClipboardItem(text: "x", html: "<p>x</p>") == ClipboardItem(text: "x", html: nil))
+    }
+
+    @Test func reinsertKeepsNewestHTML() {
+        let history = ClipboardHistory(capacity: 5)
+        history.insert(ClipboardItem(text: "a", html: nil))
+        history.insert(ClipboardItem(text: "a", html: "<p>a</p>"))
+        #expect(history.count == 1)
+        #expect(history[0]?.html == "<p>a</p>") // newest copy's HTML wins
+    }
 }

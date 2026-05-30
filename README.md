@@ -30,11 +30,14 @@ rebuilt natively for Apple Silicon, with a security-first design.
 
 - **The bezel you know.** One clip at a time, arrows cycle history (looping; direction configurable), `⏎` to
   paste (`⌥⏎` to paste with formatting), `esc` to dismiss, `⌫` to drop an entry.
-- **Formatted paste, still text-only.** `⌥⏎` renders the entry's Markdown to rich
-  text on the fly, so a Claude/ChatGPT answer pastes with real **bold**, lists and
-  code into Slack, Notes or Mail — while Sublime, Obsidian and other plain-text
-  editors still receive the clean Markdown. The HTML/RTF is generated *at paste
-  time* and never stored: the history stays plain text, memory-only.
+- **Formatted paste.** `⌥⏎` pastes with real **bold**, lists and code into rich
+  apps (Slack, Notes, Mail), while plain-text editors (Sublime, Obsidian) still get
+  clean text. It uses the richest source available: if you *selected and copied*
+  from Claude/ChatGPT, Wisp re-emits the source's own HTML for an exact match; if
+  the clip is Markdown (e.g. an assistant's **Copy** button), it renders that. The
+  optional source HTML is held **in memory only** — never written to disk — and you
+  can turn it off (menu → *Keep Source Formatting*) for a strictly plain-text
+  history.
 - **Terminal-aware.** Text copied out of a terminal (Claude Code, etc.) arrives
   hard-wrapped with literal bullet/box glyphs and stripped formatting. `⇧⏎` runs a
   best-effort reflow — un-wrap, de-glyph, re-list — then pastes it formatted. The
@@ -100,13 +103,14 @@ prompts**.
 | **←** or **↑** | Previous (older) entry — loops past the oldest |
 | **→** or **↓** | Next (newer) entry — loops past the newest |
 | **⏎** | Paste the current entry into the app you came from (plain text) |
-| **⌥⏎** | Paste **with formatting** — render the entry's Markdown to rich text (bold, lists, code) for apps like Slack, Notes & Mail; plain-text editors still get the Markdown |
+| **⌥⏎** | Paste **with formatting** — reproduces the source's formatting (its HTML, if captured) or renders the clip's Markdown, for apps like Slack, Notes & Mail; plain-text editors still get plain text |
 | **⇧⏎** | Paste **reflowed** — best-effort cleanup of text copied from a terminal (e.g. Claude Code): strip ANSI, turn bullet/tree glyphs into lists, un-wrap hard-wrapped lines, then paste formatted |
 | **esc** | Dismiss |
 | **⌫** | Remove the current entry from history |
 
 Menu-bar menu: show clipboard, clear history, history size (10/20/40/80), arrow
-direction (which arrow walks back to previous copies), launch at login, and the
+direction (which arrow walks back to previous copies), **Keep Source Formatting**
+(retain source HTML in memory for `⌥⏎`; on by default), launch at login, and the
 Accessibility toggle.
 
 ## Security

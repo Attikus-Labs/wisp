@@ -109,7 +109,10 @@ enum MarkdownRenderer {
                 para.append(t)
                 i += 1
             }
-            blocks.append("<p>\(inline(para.joined(separator: "\n")))</p>")
+            // Keep single line breaks as <br> (GitHub-style), so pasted assistant
+            // text — which uses newlines as real breaks, not Markdown soft-wraps —
+            // doesn't collapse into one run-on paragraph.
+            blocks.append("<p>\(para.map(inline).joined(separator: "<br>\n"))</p>")
         }
 
         return blocks.joined(separator: "\n")
@@ -199,9 +202,12 @@ enum MarkdownRenderer {
         // 2. Escape the remaining literal text.
         working = escape(working)
 
-        // 3. Links: [text](url). The text is already escaped; the URL still needs its
-        //    attribute-delimiter quotes neutralised so they can't break out of href.
+        // 3. Links: [text](url). The text is already escaped; the URL needs its
+        //    attribute-delimiter quotes neutralised, and an unsafe scheme
+        //    (javascript:, file:, …) drops the anchor entirely — defense-in-depth so
+        //    a pasted link can never become a live script/file reference.
         working = replaceMatches(linkRegex, in: working) { groups in
+            guard isSafeURL(groups[2]) else { return groups[1] }
             let href = groups[2].replacingOccurrences(of: "\"", with: "&quot;")
             return "<a href=\"\(href)\">\(groups[1])</a>"
         }
@@ -236,6 +242,17 @@ enum MarkdownRenderer {
 
     private static func escapeAttribute(_ s: String) -> String {
         escape(s).replacingOccurrences(of: "\"", with: "&quot;")
+    }
+
+    /// Whether a link URL is safe to emit as an `href`. Relative URLs are fine; for
+    /// absolute URLs only a small allowlist of benign schemes is permitted, so
+    /// `javascript:`, `file:`, `data:`, etc. never become live anchors.
+    private static func isSafeURL(_ url: String) -> Bool {
+        guard let colon = url.firstIndex(of: ":") else { return true } // relative URL
+        // A path/query/fragment before the colon means it isn't a scheme separator.
+        for ch in url[url.startIndex..<colon] where "/?#".contains(ch) { return true }
+        let scheme = url[url.startIndex..<colon].lowercased()
+        return ["http", "https", "mailto", "tel"].contains(scheme)
     }
 
     private static func firstGroup(_ re: NSRegularExpression, in text: String) -> String? {

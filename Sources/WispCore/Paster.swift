@@ -15,28 +15,44 @@ enum Paster {
         deliver(to: app)
     }
 
-    /// Rich paste (⌥⏎): treat the entry as Markdown and place rich flavors
-    /// alongside the plain text on a single pasteboard item. Rich targets (Slack,
-    /// Notes, Mail…) render real formatting; plain-text editors (Sublime, Obsidian)
-    /// still receive the original Markdown through the plain-text flavor. Wisp keeps
-    /// storing only text — the HTML/RTF are generated here, at paste time, and never
-    /// retained.
-    static func pasteRich(_ text: String, into app: NSRunningApplication?) {
-        let fragment = MarkdownRenderer.html(from: text)
-        let document = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body>\(fragment)</body></html>"
-
-        let item = NSPasteboardItem()
-        // Plain-text flavor is the original Markdown: best for code/markdown editors.
-        item.setString(text, forType: .string)
-        item.setString(document, forType: .html)
-        if let rtf = rtfData(fromHTML: document) {
-            item.setData(rtf, forType: .rtf)
-        }
-
+    /// Formatted paste (⌥⏎): place rich flavors alongside the plain text on a
+    /// single pasteboard item. Rich targets (Slack, Notes, Mail…) render the
+    /// formatting; plain-text editors (Sublime, Obsidian) still get `text`.
+    ///
+    /// Two sources of formatting, in order of fidelity:
+    ///   • `sourceHTML` — the originating app's own HTML, captured at copy time
+    ///     (e.g. select-and-copy from Claude). Re-emitted verbatim for an exact
+    ///     reproduction. We deliberately do NOT parse it ourselves: the
+    ///     NSAttributedString HTML importer can fetch remote resources, so feeding
+    ///     it untrusted HTML would mean a network request. Notes/Slack/Mail read
+    ///     HTML directly, so no RTF is needed here.
+    ///   • otherwise — synthesize HTML from the entry's Markdown. That HTML is our
+    ///     own and references no external resources, so deriving RTF locally is safe.
+    static func pasteFormatted(text: String, sourceHTML: String?,
+                               into app: NSRunningApplication?) {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
-        pasteboard.writeObjects([item])
+        pasteboard.writeObjects([formattedItem(text: text, sourceHTML: sourceHTML)])
         deliver(to: app)
+    }
+
+    /// Build the multi-flavor pasteboard item for a formatted paste. Extracted so
+    /// it's testable without actually pasting. Passthrough re-emits `sourceHTML`
+    /// unparsed (no RTF); synthesis renders Markdown → HTML and derives RTF.
+    static func formattedItem(text: String, sourceHTML: String?) -> NSPasteboardItem {
+        let item = NSPasteboardItem()
+        item.setString(text, forType: .string)
+
+        if let sourceHTML, !sourceHTML.isEmpty {
+            item.setString(sourceHTML, forType: .html) // passthrough, unparsed
+        } else {
+            let document = "<!DOCTYPE html><html><head><meta charset=\"utf-8\"></head><body>\(MarkdownRenderer.html(from: text))</body></html>"
+            item.setString(document, forType: .html)
+            if let rtf = rtfData(fromHTML: document) {
+                item.setData(rtf, forType: .rtf)
+            }
+        }
+        return item
     }
 
     /// Return focus to the previous app and synthesize ⌘V (if allowed). Shared by

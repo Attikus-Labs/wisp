@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var accessibilityItem: NSMenuItem?
     private var sizeItems: [NSMenuItem] = []
     private var directionItems: [NSMenuItem] = []
+    private var keepFormattingItem: NSMenuItem?
 
     override init() {
         let history = ClipboardHistory(capacity: Settings.historySize)
@@ -121,6 +122,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dirParent.submenu = dirMenu
         menu.addItem(dirParent)
 
+        // Keep the source app's formatting in memory so ⌥⏎ pastes it faithfully.
+        let keepFormatting = NSMenuItem(title: "Keep Source Formatting (⌥⏎)",
+                                        action: #selector(toggleKeepFormatting), keyEquivalent: "")
+        keepFormatting.target = self
+        menu.addItem(keepFormatting)
+        keepFormattingItem = keepFormatting
+
         let launch = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         launch.target = self
         menu.addItem(launch)
@@ -164,6 +172,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let raw = sender.representedObject as? String,
               let direction = Settings.ArrowDirection(rawValue: raw) else { return }
         Settings.previousArrow = direction
+    }
+
+    @objc private func toggleKeepFormatting() {
+        Settings.keepFormatting.toggle()
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -227,6 +239,7 @@ extension AppDelegate: NSMenuDelegate {
             let raw = item.representedObject as? String
             item.state = (raw == Settings.previousArrow.rawValue) ? .on : .off
         }
+        keepFormattingItem?.state = Settings.keepFormatting ? .on : .off
         launchItem?.state = isLaunchAtLoginEnabled ? .on : .off
 
         if AccessibilityAuthorizer.isTrusted {

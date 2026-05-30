@@ -5,6 +5,11 @@ import AppKit
 /// on a light timer. At 0.5s with tolerance this is effectively free.
 @MainActor
 final class ClipboardMonitor {
+    /// Upper bound on retained source HTML per entry — keeps a pathological
+    /// multi-megabyte clipping from bloating the in-memory history. Past this, the
+    /// entry stays plain text and ⌥⏎ falls back to Markdown synthesis.
+    private static let maxCapturedHTMLBytes = 2_000_000
+
     private let pasteboard = NSPasteboard.general
     private var lastChangeCount: Int
     private var timer: Timer?
@@ -48,7 +53,20 @@ final class ClipboardMonitor {
         guard let text = pasteboard.string(forType: .string) else { return }
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
-        history.insert(ClipboardItem(text: text, sourceBundleID: PrivacyFilter.source(of: pasteboard)))
+        // Optionally keep the source's rich HTML in memory (for ⌥⏎ formatted paste).
+        // Only reached for non-ignored items, so passwords/transient copies are
+        // already excluded by the privacy filter above. Skip blank HTML (would
+        // paste as an empty rich flavor) and bound the size we retain.
+        var html: String?
+        if Settings.keepFormatting,
+           let h = pasteboard.string(forType: .html),
+           !h.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+           h.utf8.count <= Self.maxCapturedHTMLBytes {
+            html = h
+        }
+
+        history.insert(ClipboardItem(text: text, html: html,
+                                     sourceBundleID: PrivacyFilter.source(of: pasteboard)))
         onRecord?()
     }
 }

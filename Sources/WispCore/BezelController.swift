@@ -81,9 +81,15 @@ final class BezelController: NSObject, NSWindowDelegate {
         guard let item = history[index] else { hide(); return }
         hide()
         switch mode {
-        case .plain:  Paster.paste(item.text, into: previousApp)
-        case .rich:   Paster.pasteRich(item.text, into: previousApp)
-        case .reflow: Paster.pasteRich(TerminalText.reflow(item.text), into: previousApp)
+        case .plain:
+            Paster.paste(item.text, into: previousApp)
+        case .rich:
+            // Prefer the source's own formatting when we captured it; otherwise
+            // synthesize from the entry's Markdown.
+            Paster.pasteFormatted(text: item.text, sourceHTML: item.html, into: previousApp)
+        case .reflow:
+            // Terminal output has no source HTML — reflow the text and synthesize.
+            Paster.pasteFormatted(text: TerminalText.reflow(item.text), sourceHTML: nil, into: previousApp)
         }
         // Promote what we just used so it's the most-recent next time.
         history.insert(item)

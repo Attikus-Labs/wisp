@@ -114,6 +114,16 @@ struct MarkdownRendererTests {
         #expect(render("just text").contains("<p>just text</p>"))
     }
 
+    @Test func singleNewlinesBecomeLineBreaks() {
+        // Pasted assistant text uses newlines as real breaks — they must survive
+        // as <br>, not collapse into one run-on paragraph.
+        let html = render("line one\nline two\nline three")
+        #expect(html.contains("line one<br>"))
+        #expect(html.contains("line two<br>"))
+        #expect(html.contains("line three"))
+        #expect(!html.contains("line one line two")) // not collapsed
+    }
+
     @Test func emptyInputProducesNoBlocks() {
         #expect(render("").isEmpty)
         #expect(render("\n\n   \n").isEmpty)
@@ -124,6 +134,21 @@ struct MarkdownRendererTests {
         let html = render("See [x](https://e.com/a\"b) now")
         #expect(html.contains("href=\"https://e.com/a&quot;b\""))
         #expect(!html.contains("a\"b\">"))
+    }
+
+    @Test func unsafeLinkSchemesDropTheAnchor() {
+        // javascript:/file:/data: must never become a live <a href>.
+        for url in ["javascript:alert(1)", "file:///etc/passwd", "data:text/html,x"] {
+            let html = render("[click](\(url))")
+            #expect(!html.contains("<a "))
+            #expect(html.contains("click")) // text is kept
+        }
+    }
+
+    @Test func safeLinkSchemesStillRender() {
+        #expect(render("[a](https://x.com)").contains("<a href=\"https://x.com\">a</a>"))
+        #expect(render("[m](mailto:x@y.com)").contains("<a href=\"mailto:x@y.com\">m</a>"))
+        #expect(render("[r](/local/path)").contains("<a href=\"/local/path\">r</a>")) // relative
     }
 
     @Test func preexistingSentinelDoesNotCorrupt() {
