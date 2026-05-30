@@ -33,11 +33,11 @@ enum MarkdownRenderer {
 
             // Fenced code block: ``` or ~~~ … verbatim, no inline formatting.
             if let fence = fenceMarker(trimmed) {
-                let lang = String(trimmed.dropFirst(3)).trimmingCharacters(in: .whitespaces)
+                let lang = String(trimmed.dropFirst(fence.count)).trimmingCharacters(in: .whitespaces)
                 var code: [String] = []
                 i += 1
                 while i < lines.count,
-                      fenceMarker(lines[i].trimmingCharacters(in: .whitespaces)) != fence {
+                      !closesFence(lines[i].trimmingCharacters(in: .whitespaces), opener: fence) {
                     code.append(lines[i])
                     i += 1
                 }
@@ -120,10 +120,24 @@ enum MarkdownRenderer {
 
     // MARK: - Block helpers
 
-    /// Returns "```" or "~~~" when `line` opens/closes a fenced code block.
+    /// The fence run opening a code block: 3+ backticks or 3+ tildes. Returns the
+    /// actual run (e.g. "```" or "`````") so the caller can honour CommonMark's
+    /// rule that a closer uses the same character and is at least as long.
     private static func fenceMarker(_ line: String) -> String? {
-        for fence in ["```", "~~~"] where line.hasPrefix(fence) { return fence }
+        for ch: Character in ["`", "~"] {
+            let run = line.prefix { $0 == ch }
+            if run.count >= 3 { return String(run) }
+        }
         return nil
+    }
+
+    /// Does `line` close a fence opened by `opener`? Same fence character, run at
+    /// least as long as the opener's. A longer opener (as emitted for verbatim
+    /// terminal blocks) therefore can't be closed early by a shorter fence the
+    /// captured output happens to contain.
+    private static func closesFence(_ line: String, opener: String) -> Bool {
+        guard let marker = fenceMarker(line), marker.first == opener.first else { return false }
+        return marker.count >= opener.count
     }
 
     private static func isHorizontalRule(_ line: String) -> Bool {

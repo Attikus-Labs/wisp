@@ -92,6 +92,22 @@ struct MarkdownRendererTests {
         #expect(html.contains("</code></pre>"))
     }
 
+    @Test func tildeFencedBlockIsVerbatim() {
+        let html = render("~~~\ntilde body\n~~~")
+        #expect(html.contains("<pre><code>tilde body</code></pre>"))
+    }
+
+    @Test func longFenceNotClosedByShorterInnerFence() {
+        // A 4-backtick fence must survive an inner ``` / ~~~ line (CommonMark: a
+        // closer uses the same char and is at least as long). This is what keeps a
+        // verbatim terminal block whole when the captured output shows fences.
+        let md = "````\ninner ``` still code\n~~~ also code\nend\n````"
+        let html = render(md)
+        #expect(html.components(separatedBy: "<pre><code").count - 1 == 1) // one block
+        #expect(html.contains("end"))
+        #expect(!html.contains("<p>")) // nothing leaked back into markdown
+    }
+
     @Test func blockquote() {
         let html = render("> quoted line")
         #expect(html.contains("<blockquote>"))

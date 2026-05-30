@@ -88,4 +88,103 @@ struct TerminalTextTests {
         #expect(reflow("").isEmpty)
         #expect(reflow("\u{001B}[0m\n\n  ").isEmpty)
     }
+
+    // MARK: - Tool-result regions (⎿) kept verbatim
+
+    @Test func resultBranchBlockStaysVerbatim() {
+        // The headline failure: a ⎿ (U+23BF) tool-result region must NOT be
+        // de-wrapped into a run-on line. It's kept verbatim inside a fence.
+        let input = """
+        ● Bash(cd /Users/julienbrinas/Sites/wisp
+              rm -f /tmp/bz-large.png…)
+          ⎿ === clean build ===
+            warnings+errors: 0
+            Build complete! (0.08s)
+            … +7 lines (ctrl+o to expand)
+          ⎿ Allowed by auto mode classifier
+        """
+        let out = reflow(input)
+        #expect(out.contains("warnings+errors: 0\n"))           // own line, not glued
+        #expect(out.contains("Build complete! (0.08s)\n"))
+        #expect(!out.contains("warnings+errors: 0 Build complete!")) // no run-on
+        #expect(out.contains("⎿"))                              // glyph preserved verbatim
+        #expect(out.contains("```"))                            // emitted as a fenced block
+    }
+
+    @Test func resultBodyWithWordEndingsStaysSeparate() {
+        // The generalization: body lines that end on plain words (no trailing
+        // punctuation) must still stay on separate lines, not collapse.
+        let input = "● Search\n  ⎿ Found 3 issues\n    Checking file one\n    Checking file two\n    Done"
+        let out = reflow(input)
+        #expect(!out.contains("Found 3 issues Checking")) // no run-on
+        #expect(out.contains("Checking file one\n"))
+        #expect(out.contains("Checking file two\n"))
+    }
+
+    @Test func realSoftWrapParagraphStillJoins() {
+        // A genuine soft-wrapped paragraph (no ⎿) is still rejoined.
+        let input = """
+        ● The larger bezel shows 11 lines now (was ~8) and scales cleanly — and with more text the container fills naturally, reducing the empty-space
+          feeling too. (The offscreen render shows square corners because maskImage masks the material, which only renders in the real window — so the
+          corner fix itself is verified live after reinstall.)
+        """
+        let out = reflow(input)
+        #expect(out.contains("reducing the empty-space feeling too."))             // wrap rejoined
+        #expect(out.contains("which only renders in the real window — so the corner fix"))
+        #expect(!out.contains("empty-space\n"))                                    // no stray hard break
+    }
+
+    @Test func resultConnectorSurfacesAffordance() {
+        #expect(TerminalText.looksLikeTerminalOutput("⎿ result line only"))
+    }
+
+    @Test func resultRegionWithInternalBlankStaysVerbatim() {
+        // A blank line inside a ⎿ region (common in build/test logs, diffs) must
+        // not split it into a fenced head + a de-wrapped run-on tail.
+        let input = "● Bash(make test)\n  ⎿ Running suites\n\n  suite A passed without errors\n  suite B passed without errors\n  done"
+        let out = reflow(input)
+        #expect(!out.contains("suite A passed without errors suite B")) // no run-on
+        #expect(out.contains("suite A passed without errors\n"))
+        #expect(out.contains("suite B passed without errors\n"))
+        // The whole region — including the blank — is one fenced block.
+        #expect(out.hasPrefix("```"))
+        #expect(out.contains("Running suites\n\n  suite A"))
+    }
+
+    @Test func resultRegionEndsAtDedentedProse() {
+        // After a blank, a line that dedents below the connector is a new paragraph,
+        // not result body: the region ends and the prose de-wraps separately.
+        let input = "● Bash(make)\n  ⎿ Building\n  done\n\nNext prose paragraph\nthat wraps onward"
+        let out = reflow(input)
+        #expect(out.contains("Next prose paragraph that wraps onward")) // rejoined prose
+        #expect(!out.contains("```\nNext prose"))                       // not inside the fence
+    }
+
+    @Test func resultBodyWithBothFenceStylesIsFullyProtected() {
+        // Output that itself shows ``` and ~~~ must still be captured verbatim:
+        // the wrapping fence escalates past the longest inner backtick run.
+        let input = "● Cat(doc.md)\n  ⎿ two fence styles:\n    ```swift\n    let x = 1\n    ```\n    ~~~text\n    plain\n    ~~~\n    end of file"
+        let out = reflow(input)
+        #expect(out.hasPrefix("````"))        // 4-backtick fence clears the inner ```
+        #expect(out.contains("end of file"))  // tail captured, not leaked
+    }
+
+    @Test func resultRegionPreservesConsecutiveBlankLines() {
+        // Two blank lines inside a region must survive verbatim — the blank-marker
+        // collapse runs on the block array, not inside the fenced body.
+        let input = "● X\n  ⎿ a\n\n\n  b indented\n  c indented"
+        let out = reflow(input)
+        #expect(out.contains("a\n\n\n  b indented"))      // both blanks kept
+        #expect(!out.contains("b indented c indented"))   // and still no run-on
+    }
+
+    @Test func fenceClearsNonAsciiWhitespaceInnerFence() {
+        // A ``` preceded by a non-ASCII space (NBSP) that the renderer trims must
+        // not close the fence early: sizing the fence past the longest backtick run
+        // anywhere in the body is whitespace-agnostic.
+        let input = "● out\n  ⎿ result\n  \u{00A0}```\n  still inside\n  more body"
+        let out = reflow(input)
+        #expect(out.hasPrefix("````"))      // escalated past the inner ``` run
+        #expect(out.contains("more body"))  // tail captured
+    }
 }
