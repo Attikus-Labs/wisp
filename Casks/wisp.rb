@@ -7,7 +7,7 @@
 # `Casks/wisp.rb` there. The release workflow prints the dmg's sha256 in
 # SHA256SUMS.txt — paste it below on each release (or automate the bump).
 cask "wisp" do
-  version "0.1.0"
+  version "0.2.0"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 
   url "https://github.com/Attikus-Labs/wisp/releases/download/v#{version}/Wisp-#{version}.dmg",
