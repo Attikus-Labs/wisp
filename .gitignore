@@ -29,5 +29,6 @@ secrets/
 # macOS
 .DS_Store
 
-# Claude Code: track shared commands, ignore per-user local settings
+# Claude Code: track shared commands, ignore per-user local settings & runtime locks
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
