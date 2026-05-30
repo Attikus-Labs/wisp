@@ -64,7 +64,10 @@ final class BezelController: NSObject, NSWindowDelegate {
 
     private func move(by delta: Int) {
         guard !history.isEmpty else { return }
-        index = min(max(index + delta, 0), history.count - 1)
+        // Wrap around the ends so navigation loops through the whole history
+        // instead of stopping at the newest / oldest entry.
+        let count = history.count
+        index = ((index + delta) % count + count) % count
         render()
     }
 

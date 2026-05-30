@@ -3,8 +3,8 @@ import Carbon.HIToolbox
 
 /// A key press the bezel cares about.
 enum BezelKey {
-    case older     // ← / ↑  : further back in history
-    case newer     // → / ↓  : toward the most recent
+    case older     // step back into history (further from the newest)
+    case newer     // step toward the most-recent copy
     case paste     // ⏎
     case dismiss   // esc
     case delete    // ⌫ : drop the current entry
@@ -41,11 +41,14 @@ final class BezelPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 
     override func keyDown(with event: NSEvent) {
+        // Which physical arrow walks *back* to previous copies is configurable
+        // (menu → Arrow Direction). Up always pairs with Left, Down with Right.
+        let leftIsOlder = Settings.previousArrow == .left
         switch Int(event.keyCode) {
         case kVK_LeftArrow, kVK_UpArrow:
-            onKey?(.older)
+            onKey?(leftIsOlder ? .older : .newer)
         case kVK_RightArrow, kVK_DownArrow:
-            onKey?(.newer)
+            onKey?(leftIsOlder ? .newer : .older)
         case kVK_Return, kVK_ANSI_KeypadEnter:
             onKey?(.paste)
         case kVK_Escape:
