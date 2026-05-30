@@ -28,7 +28,7 @@ security-first design.
 
 ## Features
 
-- **The bezel you know.** One clip at a time, `←` older / `→` newer, `⏎` to
+- **The bezel you know.** One clip at a time, arrows cycle history (looping; direction configurable), `⏎` to
   paste, `esc` to dismiss, `⌫` to drop an entry.
 - **Native & light.** Swift + AppKit, a single tiny native binary, no Dock
   icon — it lives in the menu bar. No Electron, no web view.
@@ -87,14 +87,15 @@ prompts**.
 | Key | Action |
 |-----|--------|
 | **⌘⇧V** | Show / hide the bezel |
-| **←** or **↑** | Older entry |
-| **→** or **↓** | Newer entry |
+| **←** or **↑** | Previous (older) entry — loops past the oldest |
+| **→** or **↓** | Next (newer) entry — loops past the newest |
 | **⏎** | Paste the current entry into the app you came from |
 | **esc** | Dismiss |
 | **⌫** | Remove the current entry from history |
 
-Menu-bar menu: show clipboard, clear history, history size (10/20/40/80), launch
-at login, and the Accessibility toggle.
+Menu-bar menu: show clipboard, clear history, history size (10/20/40/80), arrow
+direction (which arrow walks back to previous copies), launch at login, and the
+Accessibility toggle.
 
 ## Security
 

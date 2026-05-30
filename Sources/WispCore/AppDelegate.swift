@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var launchItem: NSMenuItem?
     private var accessibilityItem: NSMenuItem?
     private var sizeItems: [NSMenuItem] = []
+    private var directionItems: [NSMenuItem] = []
 
     override init() {
         let history = ClipboardHistory(capacity: Settings.historySize)
@@ -103,6 +104,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sizeParent.submenu = sizeMenu
         menu.addItem(sizeParent)
 
+        // Arrow direction submenu — which arrow walks back to previous copies.
+        let dirParent = NSMenuItem(title: "Arrow Direction", action: nil, keyEquivalent: "")
+        let dirMenu = NSMenu()
+        let dirOptions: [(Settings.ArrowDirection, String)] = [
+            (.left,  "← Previous   → Next"),
+            (.right, "→ Previous   ← Next")
+        ]
+        directionItems = dirOptions.map { direction, label in
+            let item = NSMenuItem(title: label, action: #selector(changeDirection(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = direction.rawValue
+            dirMenu.addItem(item)
+            return item
+        }
+        dirParent.submenu = dirMenu
+        menu.addItem(dirParent)
+
         let launch = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         launch.target = self
         menu.addItem(launch)
@@ -140,6 +158,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func changeSize(_ sender: NSMenuItem) {
         Settings.historySize = sender.tag
         history.setCapacity(sender.tag)
+    }
+
+    @objc private func changeDirection(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let direction = Settings.ArrowDirection(rawValue: raw) else { return }
+        Settings.previousArrow = direction
     }
 
     @objc private func toggleLaunchAtLogin() {
@@ -198,6 +222,10 @@ extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         for item in sizeItems {
             item.state = (item.tag == history.capacity) ? .on : .off
+        }
+        for item in directionItems {
+            let raw = item.representedObject as? String
+            item.state = (raw == Settings.previousArrow.rawValue) ? .on : .off
         }
         launchItem?.state = isLaunchAtLoginEnabled ? .on : .off
 
