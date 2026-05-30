@@ -49,39 +49,29 @@ security-first design.
 
 ## Install
 
-### Homebrew (recommended)
+Wisp doesn't ship a prebuilt binary yet. Until it's signed & notarized by Apple,
+the responsible way to run a clipboard manager is to **build it from source** —
+so the app you run is the code you can read here. (Early on that fits the
+audience anyway: developers.)
+
+### Build & install from source
+
+Requirements: macOS 13+ and Apple's **Command Line Tools** (`xcode-select --install`).
 
 ```sh
-brew install --cask Attikus-Labs/tap/wisp
+git clone https://github.com/Attikus-Labs/wisp
+cd wisp
+Scripts/install.sh        # builds, installs to /Applications, and launches
 ```
 
-### Direct download
+Because it's built locally, macOS doesn't quarantine it — **no Gatekeeper
+prompts**.
 
-> ⚠️ **Current releases are unsigned.** Until the project has an Apple Developer
-> ID, the `.dmg` is **not** signed or notarized, so macOS Gatekeeper blocks it on
-> first launch. The app is safe — it's built by
-> [CI](https://github.com/Attikus-Labs/wisp/actions) straight from this source —
-> you just have to approve it once.
-
-1. Download `Wisp-<version>.dmg` from the
-   [Releases](https://github.com/Attikus-Labs/wisp/releases) page.
-2. Open the dmg and drag **Wisp** into **Applications**.
-3. **First launch:** right-click (or Control-click) **Wisp.app → Open → Open**.
-   Double-clicking only shows an "unidentified developer" / "can't be opened"
-   dialog. If macOS still refuses, clear the quarantine flag once:
-   ```sh
-   xattr -dr com.apple.quarantine /Applications/Wisp.app
-   ```
-4. Grant **Accessibility** when prompted — it's used only to paste with ⌘V.
-
-Verify your download against the published checksum:
-
-```sh
-shasum -a 256 -c SHA256SUMS-<version>.txt
-```
-
-Prefer to skip Gatekeeper entirely? [Build from source](#build-from-source) — a
-locally built app isn't quarantined.
+> **Prebuilt `.dmg` + Homebrew are coming** once the project has an Apple
+> Developer ID for notarization. We deliberately don't ship an *unsigned* binary
+> in the meantime: on macOS 15+ it trips a scary "could not verify… malware"
+> block and would mean asking you to bypass Gatekeeper — the wrong tradeoff for a
+> security-focused clipboard tool.
 
 ### First run
 
@@ -119,23 +109,16 @@ model is in **[docs/SECURITY.md](docs/SECURITY.md)**. The short version:
 | Supply-chain risk | Zero third-party dependencies |
 | Excess permissions | Accessibility only, only for paste; **not** sandboxed because auto-paste requires synthesizing keys into other apps (the same posture Maccy takes) |
 
-## Build from source
+## Development
 
-You only need Apple's **Command Line Tools** to build the app (full Xcode is
-needed just to run the test suite, which uses Swift Testing).
+Building the app needs only Apple's **Command Line Tools**; running the test
+suite (Swift Testing) needs a full Xcode toolchain.
 
 ```sh
-git clone https://github.com/Attikus-Labs/wisp
-cd wisp
-
-# Build & launch (debug)
-Scripts/run.sh
-
-# Or build a release .app bundle into dist/
-Scripts/build-app.sh release
-
-# Run tests (requires full Xcode toolchain)
-swift test
+Scripts/run.sh                 # build & launch the debug app
+Scripts/build-app.sh release   # build a release .app into dist/
+Scripts/install.sh             # build & install to /Applications
+swift test                     # unit tests (requires full Xcode)
 ```
 
 ## How it works
