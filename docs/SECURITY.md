@@ -43,13 +43,29 @@ HTML→RTF conversion that *would* invoke a network-capable importer runs only o
 Wisp's own synthesized Markdown, never on captured source HTML). Turn the menu
 option off for a strictly plain-text history.
 
+## Memory budget
+
+Because the history lives only in RAM, its size is bounded so a few huge copies can't
+balloon Wisp's footprint — and both bounds are user-controlled in the menu:
+
+- **Entry count** — the ring holds 10 / 20 / 40 / 80 entries (default 40).
+- **Per-clip size cap** — a byte budget applied to **every field retained: the plain
+  text *and* the captured HTML**. Default **2 MB**; selectable as 1 / 2 / 5 / 10 / 50 MB
+  or *Unlimited* ([`ClipboardMonitor`](../Sources/WispCore/ClipboardMonitor.swift),
+  [`Settings.maxClipBytes`](../Sources/WispCore/Settings.swift)). A clip whose **text**
+  exceeds the cap is **not recorded** (it remains on the system pasteboard, so a manual
+  `⌘V` still works); **HTML** over the cap is dropped while the text is kept. Worst-case
+  retained memory is therefore ≈ *entry count × per-clip cap* — a number you choose.
+
 ## Data lifecycle
 
 - History is an in-memory ring of at most 40 entries (configurable 10–80), newest
-  first, held by [`ClipboardHistory`](../Sources/WispCore/ClipboardHistory.swift).
+  first, held by [`ClipboardHistory`](../Sources/WispCore/ClipboardHistory.swift),
+  with each entry bounded by the per-clip size cap above.
 - **Nothing is written to disk.** There is no database, no cache, no log of
-  clipboard contents. The only thing persisted via `UserDefaults` is your chosen
-  history *size* — never any clipboard text.
+  clipboard contents. The only things persisted via `UserDefaults` are your
+  *preferences* — history size, max clip size, arrow direction, keep-formatting —
+  never any clipboard text.
 - Quitting Wisp or restarting your Mac wipes the history. "Clear History" in the
   menu wipes it immediately.
 
