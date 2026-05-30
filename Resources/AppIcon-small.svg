@@ -1,42 +1,34 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simplified high-contrast variant for tiny sizes (16/32px, e.g. Finder
+       list view). The clipboard is a solid amber shape so the silhouette reads
+       against any row colour; the detailed dark icon is used at 128px+. -->
   <defs>
     <linearGradient id="bg" x1="160" y1="140" x2="880" y2="900" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#2B3340"/>
       <stop offset="0.52" stop-color="#1A2230"/>
       <stop offset="1" stop-color="#0E141E"/>
     </linearGradient>
-    <linearGradient id="frontCard" x1="470" y1="330" x2="470" y2="812" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#3A4456"/>
-      <stop offset="1" stop-color="#1F2733"/>
-    </linearGradient>
-    <linearGradient id="clip" x1="470" y1="296" x2="470" y2="388" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F2F0EA"/>
-      <stop offset="1" stop-color="#BDB6AA"/>
-    </linearGradient>
-    <linearGradient id="wisp" x1="320" y1="560" x2="640" y2="560" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFC24D"/>
-      <stop offset="0.5" stop-color="#FFF0CC"/>
-      <stop offset="1" stop-color="#FF9E5C"/>
+    <linearGradient id="card" x1="470" y1="330" x2="470" y2="812" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFD27A"/>
+      <stop offset="1" stop-color="#FF9E3C"/>
     </linearGradient>
     <clipPath id="squircle"><rect x="100" y="100" width="824" height="824" rx="185"/></clipPath>
   </defs>
   <g clip-path="url(#squircle)">
     <rect x="100" y="100" width="824" height="824" fill="url(#bg)"/>
 
-    <!-- Back card (history) -->
-    <rect x="430" y="300" width="318" height="420" rx="54" fill="#2A323F"/>
-    <rect x="430" y="300" width="318" height="420" rx="54" fill="none" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="4"/>
+    <!-- Back card (history stack hint) -->
+    <rect x="430" y="312" width="300" height="404" rx="56" fill="#C98A3E"/>
 
-    <!-- Front card (current clip) -->
-    <rect x="292" y="338" width="372" height="468" rx="62" fill="url(#frontCard)"/>
-    <rect x="292" y="338" width="372" height="468" rx="62" fill="none" stroke="#FFC57A" stroke-opacity="0.85" stroke-width="6"/>
+    <!-- Front card (current clip), solid amber for contrast -->
+    <rect x="276" y="346" width="420" height="464" rx="70" fill="url(#card)"/>
 
     <!-- Clip -->
-    <path d="M422 352 a56 56 0 0 1 112 0 v6 a30 30 0 0 1 -30 30 h-52 a30 30 0 0 1 -30 -30 z" fill="url(#clip)"/>
-    <rect x="458" y="348" width="40" height="22" rx="11" fill="#1F2733"/>
+    <path d="M412 358 a74 74 0 0 1 148 0 v8 a34 34 0 0 1 -34 34 h-80 a34 34 0 0 1 -34 -34 z" fill="#E6F0F4"/>
+    <rect x="460" y="356" width="52" height="26" rx="13" fill="#1F2733"/>
 
-    <!-- Bold luminous content lines -->
-    <rect x="346" y="540" width="248" height="30" rx="15" fill="url(#wisp)"/>
-    <rect x="346" y="602" width="180" height="30" rx="15" fill="url(#wisp)" opacity="0.8"/>
+    <!-- Content lines (dark slate for high contrast on amber) -->
+    <rect x="350" y="560" width="280" height="40" rx="20" fill="#23303F"/>
+    <rect x="350" y="632" width="200" height="40" rx="20" fill="#23303F"/>
   </g>
 </svg>

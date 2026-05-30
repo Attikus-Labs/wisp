@@ -7,40 +7,30 @@
       <stop offset="1" stop-color="#0E141E"/>
     </linearGradient>
 
-    <radialGradient id="halo" cx="478" cy="540" r="320" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFC55C" stop-opacity="0.34"/>
-      <stop offset="0.55" stop-color="#FFB347" stop-opacity="0.11"/>
+    <radialGradient id="halo" cx="478" cy="540" r="330" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFC55C" stop-opacity="0.42"/>
+      <stop offset="0.55" stop-color="#FFB347" stop-opacity="0.14"/>
       <stop offset="1" stop-color="#FFB347" stop-opacity="0"/>
     </radialGradient>
 
-    <!-- Older clipping (back card) -->
+    <!-- Older clipping (back card), a dimmer amber -->
     <linearGradient id="backCard" x1="540" y1="300" x2="540" y2="720" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2A323F"/>
-      <stop offset="1" stop-color="#1C2430"/>
+      <stop offset="0" stop-color="#D9A24E"/>
+      <stop offset="1" stop-color="#A9712C"/>
     </linearGradient>
 
-    <!-- Current clipping (front card) -->
+    <!-- Current clipping (front card), lit amber -->
     <linearGradient id="frontCard" x1="470" y1="346" x2="470" y2="806" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#323B49"/>
-      <stop offset="1" stop-color="#1F2733"/>
-    </linearGradient>
-    <linearGradient id="frontRim" x1="470" y1="346" x2="470" y2="806" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFD58A" stop-opacity="0.95"/>
-      <stop offset="0.5" stop-color="#C9A36A" stop-opacity="0.45"/>
-      <stop offset="1" stop-color="#FFB35C" stop-opacity="0.78"/>
+      <stop offset="0" stop-color="#FFD888"/>
+      <stop offset="0.55" stop-color="#FFBC55"/>
+      <stop offset="1" stop-color="#FF9E3C"/>
     </linearGradient>
 
+    <!-- Light clip -->
     <linearGradient id="clip" x1="470" y1="300" x2="470" y2="392" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#F2F0EA"/>
-      <stop offset="0.5" stop-color="#CFC8BC"/>
-      <stop offset="1" stop-color="#9C9588"/>
-    </linearGradient>
-
-    <!-- Luminous content lines (warm amber) -->
-    <linearGradient id="wisp" x1="300" y1="560" x2="650" y2="560" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFC24D"/>
-      <stop offset="0.5" stop-color="#FFF0CC"/>
-      <stop offset="1" stop-color="#FF9E5C"/>
+      <stop offset="0" stop-color="#F4F7FA"/>
+      <stop offset="0.5" stop-color="#DDE5EC"/>
+      <stop offset="1" stop-color="#C2CCD6"/>
     </linearGradient>
 
     <filter id="bloom" x="-60%" y="-60%" width="220%" height="220%">
@@ -59,29 +49,30 @@
     <!-- Back card: an older clipping in the history stack, offset up-right -->
     <g transform="rotate(4 560 520)">
       <rect x="404" y="300" width="320" height="412" rx="52" fill="url(#backCard)"/>
-      <rect x="404" y="300" width="320" height="412" rx="52" fill="none" stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="3"/>
-      <rect x="450" y="372" width="150" height="20" rx="10" fill="#FFFFFF" fill-opacity="0.13"/>
-      <rect x="450" y="416" width="210" height="20" rx="10" fill="#FFFFFF" fill-opacity="0.09"/>
+      <rect x="404" y="300" width="320" height="412" rx="52" fill="none" stroke="#FFFFFF" stroke-opacity="0.16" stroke-width="3"/>
+      <rect x="450" y="372" width="150" height="20" rx="10" fill="#5A3F1B" fill-opacity="0.30"/>
+      <rect x="450" y="416" width="210" height="20" rx="10" fill="#5A3F1B" fill-opacity="0.22"/>
     </g>
 
-    <!-- Soft bloom behind the lit current clipping -->
-    <rect filter="url(#bloom)" x="300" y="346" width="372" height="460" rx="64" fill="#FFB347" opacity="0.26"/>
+    <!-- Soft amber bloom behind the lit current clipping -->
+    <rect filter="url(#bloom)" x="300" y="346" width="372" height="460" rx="64" fill="#FFB347" opacity="0.34"/>
 
     <!-- Front card: the current clipping, lit -->
     <g transform="rotate(-3 486 576)">
       <rect x="300" y="346" width="372" height="460" rx="62" fill="url(#frontCard)"/>
-      <rect x="300" y="346" width="372" height="460" rx="62" fill="none" stroke="url(#frontRim)" stroke-width="5"/>
-      <!-- top sheen -->
-      <path d="M324 372 h324 a14 14 0 0 1 14 14 v60 h-352 v-60 a14 14 0 0 1 14 -14 z" fill="#FFFFFF" opacity="0.05"/>
+      <!-- glossy top sheen -->
+      <path d="M324 372 h324 a14 14 0 0 1 14 14 v70 h-352 v-70 a14 14 0 0 1 14 -14 z" fill="#FFFFFF" opacity="0.18"/>
+      <!-- soft top-edge highlight -->
+      <rect x="300" y="346" width="372" height="460" rx="62" fill="none" stroke="#FFE9BE" stroke-opacity="0.55" stroke-width="3"/>
 
       <!-- Clip -->
       <path d="M430 360 a56 56 0 0 1 112 0 v6 a30 30 0 0 1 -30 30 h-52 a30 30 0 0 1 -30 -30 z" fill="url(#clip)"/>
       <rect x="466" y="356" width="40" height="22" rx="11" fill="#1F2733"/>
 
-      <!-- Luminous content lines (the wisp of light = your clip) -->
-      <rect x="356" y="540" width="240" height="26" rx="13" fill="url(#wisp)"/>
-      <rect x="356" y="596" width="180" height="26" rx="13" fill="url(#wisp)" opacity="0.85"/>
-      <rect x="356" y="652" width="210" height="26" rx="13" fill="url(#wisp)" opacity="0.7"/>
+      <!-- Content lines: dark slate on amber, matching the small icon -->
+      <rect x="356" y="540" width="240" height="26" rx="13" fill="#23303F"/>
+      <rect x="356" y="596" width="180" height="26" rx="13" fill="#23303F" opacity="0.9"/>
+      <rect x="356" y="652" width="210" height="26" rx="13" fill="#23303F" opacity="0.8"/>
     </g>
   </g>
 </svg>
