@@ -122,8 +122,7 @@ final class BezelView: NSVisualEffectView {
     }
 
     func update(item: ClipboardItem, index: Int, count: Int) {
-        // Don't trim: the container is meant to reveal leading spaces verbatim.
-        body.stringValue = item.text
+        body.stringValue = previewText(item.text)
         nav.attributedStringValue = navLine(index: index, count: count)
         appLabel.stringValue = appName(for: item.sourceBundleID) ?? ""
         charLabel.stringValue = charCountText(item.text.count)
@@ -173,12 +172,28 @@ final class BezelView: NSVisualEffectView {
         count == 1 ? "1 char" : "\(count) chars"
     }
 
+    /// What to show in the container: keep leading spaces (so they're revealed
+    /// against the edge), but drop leading blank lines and all trailing whitespace,
+    /// which would only waste preview height. The full text is still what gets pasted.
+    private func previewText(_ text: String) -> String {
+        var s = Substring(text)
+        while let f = s.first, f == "\n" || f == "\r" { s = s.dropFirst() }
+        while let l = s.last, l.isWhitespace { s = s.dropLast() }
+        return String(s)
+    }
+
+    /// App display name for a bundle id, memoised — `update` runs on every ← / →
+    /// keystroke, so the (synchronous) Launch Services / filesystem lookup must not
+    /// repeat per navigation. An empty cached value means "no resolvable name".
+    private var appNameCache: [String: String] = [:]
     private func appName(for bundleID: String?) -> String? {
-        guard let bundleID,
-              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
-        else { return nil }
-        return FileManager.default.displayName(atPath: url.path)
-            .replacingOccurrences(of: ".app", with: "")
+        guard let bundleID else { return nil }
+        if let cached = appNameCache[bundleID] { return cached.isEmpty ? nil : cached }
+        let resolved = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map {
+            FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "")
+        }
+        appNameCache[bundleID] = resolved ?? ""
+        return resolved
     }
 
     /// A resizable rounded-rect mask (opaque inside, transparent outside) for the

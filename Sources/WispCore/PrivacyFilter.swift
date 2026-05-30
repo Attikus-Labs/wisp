@@ -55,12 +55,6 @@ enum PrivacyFilter {
         return false
     }
 
-    /// True when the current pasteboard contents must NOT be recorded.
-    static func shouldIgnore(_ pasteboard: NSPasteboard) -> Bool {
-        shouldIgnore(types: (pasteboard.types ?? []).map(\.rawValue),
-                     source: pasteboard.string(forType: sourceType))
-    }
-
     /// Best-effort source app bundle id (for display), if advertised.
     static func source(of pasteboard: NSPasteboard) -> String? {
         pasteboard.string(forType: sourceType)
