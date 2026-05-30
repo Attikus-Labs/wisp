@@ -9,7 +9,7 @@ import AppKit
 /// Full text is always pasted regardless of truncation.
 @MainActor
 final class BezelView: NSVisualEffectView {
-    static let size = NSSize(width: 460, height: 280)
+    static let size = NSSize(width: 506, height: 308) // 460×280 + 10%
 
     private let appLabel = NSTextField(labelWithString: "")
     private let nav = NSTextField(labelWithString: "")
@@ -25,8 +25,11 @@ final class BezelView: NSVisualEffectView {
         blendingMode = .behindWindow
         state = .active
         wantsLayer = true
-        layer?.cornerRadius = 18
-        layer?.masksToBounds = true
+        // Round the corners by masking the *material* (maskImage), not the layer:
+        // layer cornerRadius + masksToBounds leaves a light fringe in the corner
+        // triangles of an NSVisualEffectView (visible over a light background). The
+        // mask makes everything beyond the rounded edge fully transparent.
+        maskImage = Self.roundedMaskImage(radius: 18)
 
         // Header: app (left) · nav (center) · chars (right), one baseline.
         configure(appLabel, font: .systemFont(ofSize: 11), color: .tertiaryLabelColor)
@@ -58,7 +61,7 @@ final class BezelView: NSVisualEffectView {
         container.translatesAutoresizingMaskIntoConstraints = false
 
         configure(body, font: .systemFont(ofSize: 14), color: .labelColor)
-        body.maximumNumberOfLines = 9
+        body.maximumNumberOfLines = 11
         body.lineBreakMode = .byTruncatingTail
         body.cell?.truncatesLastVisibleLine = true
         body.preferredMaxLayoutWidth = BezelView.size.width - 32 - 24
@@ -176,5 +179,20 @@ final class BezelView: NSVisualEffectView {
         else { return nil }
         return FileManager.default.displayName(atPath: url.path)
             .replacingOccurrences(of: ".app", with: "")
+    }
+
+    /// A resizable rounded-rect mask (opaque inside, transparent outside) for the
+    /// visual effect view's `maskImage`, so the material is clipped to clean rounded
+    /// corners with no fringe.
+    private static func roundedMaskImage(radius: CGFloat) -> NSImage {
+        let side = radius * 2 + 1
+        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        image.resizingMode = .stretch
+        return image
     }
 }
