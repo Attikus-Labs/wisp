@@ -18,7 +18,7 @@ security-first design.
 > **Why this exists.** [Flycut](https://github.com/TermiT/Flycut) — the clipboard
 > manager a lot of us have used for a decade — hasn't had a real update since
 > ~2020, runs under Rosetta 2 (it's not a native Apple-Silicon binary), and
-> crashes on recent macOS. The healthiest open-source alternative,
+> sometimes crashes on recent macOS. The healthiest open-source alternative,
 > [Maccy](https://github.com/p0deje/Maccy), is excellent but uses a different
 > UX (a searchable list, not the single-clip bezel you cycle with arrows). Wisp
 > fills the gap: Flycut's exact bezel feel, native and maintained, and built to
@@ -30,7 +30,7 @@ security-first design.
 
 - **The bezel you know.** One clip at a time, `←` older / `→` newer, `⏎` to
   paste, `esc` to dismiss, `⌫` to drop an entry.
-- **Native & light.** Swift + AppKit, a single ~tiny universal binary, no Dock
+- **Native & light.** Swift + AppKit, a single tiny native binary, no Dock
   icon — it lives in the menu bar. No Electron, no web view.
 - **Zero third-party dependencies.** The only code that touches your clipboard
   is this repo plus Apple's frameworks. Auditable in an afternoon.
@@ -57,13 +57,31 @@ brew install --cask Attikus-Labs/tap/wisp
 
 ### Direct download
 
-Grab `Wisp-<version>.dmg` from the [Releases](https://github.com/Attikus-Labs/wisp/releases)
-page, open it, and drag **Wisp** to Applications.
+> ⚠️ **Current releases are unsigned.** Until the project has an Apple Developer
+> ID, the `.dmg` is **not** signed or notarized, so macOS Gatekeeper blocks it on
+> first launch. The app is safe — it's built by
+> [CI](https://github.com/Attikus-Labs/wisp/actions) straight from this source —
+> you just have to approve it once.
 
-> **First launch & Gatekeeper.** Notarized builds open with a double-click. If
-> you're running a build that isn't yet signed with a Developer ID, macOS will
-> say it "can't be opened" — right-click the app → **Open** → **Open**, once.
-> See [code signing status](#code-signing--notarization) below.
+1. Download `Wisp-<version>.dmg` from the
+   [Releases](https://github.com/Attikus-Labs/wisp/releases) page.
+2. Open the dmg and drag **Wisp** into **Applications**.
+3. **First launch:** right-click (or Control-click) **Wisp.app → Open → Open**.
+   Double-clicking only shows an "unidentified developer" / "can't be opened"
+   dialog. If macOS still refuses, clear the quarantine flag once:
+   ```sh
+   xattr -dr com.apple.quarantine /Applications/Wisp.app
+   ```
+4. Grant **Accessibility** when prompted — it's used only to paste with ⌘V.
+
+Verify your download against the published checksum:
+
+```sh
+shasum -a 256 -c SHA256SUMS-<version>.txt
+```
+
+Prefer to skip Gatekeeper entirely? [Build from source](#build-from-source) — a
+locally built app isn't quarantined.
 
 ### First run
 

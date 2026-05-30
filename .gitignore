@@ -29,5 +29,5 @@ secrets/
 # macOS
 .DS_Store
 
-# Claude Code local config
-.claude/
+# Claude Code: track shared commands, ignore per-user local settings
+.claude/settings.local.json

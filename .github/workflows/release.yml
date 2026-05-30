@@ -1,11 +1,12 @@
 name: Release
 
-# Tag a commit (e.g. `git tag v0.1.0 && git push --tags`) to cut a release.
+# Tag a commit (e.g. `git tag v0.1.0 && git push --tags`) to cut a notarized
+# release. This signs with a Developer ID, notarizes with Apple, staples,
+# packages a .dmg, and attaches it to a GitHub Release.
 #
-# This builds, Developer-ID signs, notarizes, staples, packages a .dmg, and
-# attaches it to a GitHub Release. It needs the repository secrets listed in
-# docs/RELEASING.md. Until those are set, releases simply won't run — the rest
-# of the project (CI, local builds) works without them.
+# It needs the repository secrets in docs/RELEASING.md. Until those are set, the
+# `release` job is SKIPPED (not failed) — so the unsigned `/release` command
+# (Scripts/release.sh), which creates tags locally, won't trip a red build here.
 on:
   push:
     tags:
@@ -15,7 +16,27 @@ permissions:
   contents: write
 
 jobs:
+  # Secrets can't be read in a job-level `if`, so a tiny gate job exposes
+  # "do we have a signing identity?" as an output the real job can branch on.
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - id: check
+        env:
+          SIGN_IDENTITY: ${{ secrets.SIGN_IDENTITY }}
+        run: |
+          if [[ -n "$SIGN_IDENTITY" ]]; then
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No SIGN_IDENTITY secret set — skipping notarized release. Unsigned releases are cut with the /release command (Scripts/release.sh)."
+          fi
+
   release:
+    needs: guard
+    if: needs.guard.outputs.proceed == 'true'
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
