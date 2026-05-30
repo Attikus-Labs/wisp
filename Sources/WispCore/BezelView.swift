@@ -8,7 +8,7 @@ final class BezelView: NSVisualEffectView {
 
     private let body = NSTextField(wrappingLabelWithString: "")
     private let footer = NSTextField(labelWithString: "")
-    private let hint = NSTextField(labelWithString: "")
+    private let legend = NSTextField(labelWithString: "")
 
     init() {
         super.init(frame: NSRect(origin: .zero, size: BezelView.size))
@@ -28,32 +28,33 @@ final class BezelView: NSVisualEffectView {
         configure(footer, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor)
         footer.maximumNumberOfLines = 1
         footer.lineBreakMode = .byTruncatingMiddle
+        footer.alignment = .center
 
-        // Discreet, right-aligned reminder of the paste modifiers. Never truncates;
-        // the info footer yields space to it instead.
-        configure(hint, font: .systemFont(ofSize: 10, weight: .medium), color: .tertiaryLabelColor)
-        hint.maximumNumberOfLines = 1
-        hint.alignment = .right
-        hint.setContentHuggingPriority(.required, for: .horizontal)
-        hint.setContentCompressionResistancePriority(.required, for: .horizontal)
-        footer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // Always-visible legend of the three paste shortcuts, so all of them — not
+        // just ⌥⏎ — are discoverable. Centered on its own line below the info row.
+        configure(legend, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor)
+        legend.maximumNumberOfLines = 1
+        legend.alignment = .center
 
         addSubview(body)
         addSubview(footer)
-        addSubview(hint)
+        addSubview(legend)
 
         NSLayoutConstraint.activate([
-            body.topAnchor.constraint(equalTo: topAnchor, constant: 22),
+            body.topAnchor.constraint(equalTo: topAnchor, constant: 20),
             body.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 22),
             body.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -22),
-            body.bottomAnchor.constraint(lessThanOrEqualTo: footer.topAnchor, constant: -12),
+            body.bottomAnchor.constraint(lessThanOrEqualTo: footer.topAnchor, constant: -10),
 
-            footer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 22),
-            footer.trailingAnchor.constraint(lessThanOrEqualTo: hint.leadingAnchor, constant: -10),
-            footer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18),
+            footer.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 22),
+            footer.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -22),
+            footer.centerXAnchor.constraint(equalTo: centerXAnchor),
+            footer.bottomAnchor.constraint(equalTo: legend.topAnchor, constant: -5),
 
-            hint.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -22),
-            hint.firstBaselineAnchor.constraint(equalTo: footer.firstBaselineAnchor)
+            legend.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 16),
+            legend.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
+            legend.centerXAnchor.constraint(equalTo: centerXAnchor),
+            legend.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
         ])
     }
 
@@ -79,11 +80,22 @@ final class BezelView: NSVisualEffectView {
         parts.append(charCountText(item.text.count))
         footer.stringValue = parts.joined(separator: "   ·   ")
 
-        // Always advertise formatted paste; surface reflow only when the entry
-        // looks like wrapped terminal output, where it actually helps.
-        hint.stringValue = TerminalText.looksLikeTerminalOutput(item.text)
-            ? "⌥⏎ formatted   ⇧⏎ reflow"
-            : "⌥⏎ formatted"
+        legend.attributedStringValue = pasteLegend(
+            highlightReflow: TerminalText.looksLikeTerminalOutput(item.text))
+    }
+
+    /// The three paste shortcuts, always shown. ⇧⏎ reflow is brightened when the
+    /// clip looks like terminal output — the case where it actually helps.
+    private func pasteLegend(highlightReflow: Bool) -> NSAttributedString {
+        let font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        let normal: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.secondaryLabelColor]
+        var reflow = normal
+        if highlightReflow { reflow[.foregroundColor] = NSColor.labelColor }
+
+        let line = NSMutableAttributedString()
+        line.append(NSAttributedString(string: "⏎ plain      ⌥⏎ formatted      ", attributes: normal))
+        line.append(NSAttributedString(string: "⇧⏎ reflow", attributes: reflow))
+        return line
     }
 
     private func charCountText(_ count: Int) -> String {
