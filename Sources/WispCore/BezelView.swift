@@ -1,13 +1,23 @@
 import AppKit
 
-/// The translucent HUD content: a large preview of the current clip plus a small
-/// position/source footer. Full text is always pasted regardless of truncation.
+/// The translucent HUD content, in three zones:
+///   • a header — source app, a direction-aware nav (← / → flanking the position
+///     counter, labelled older/newer per the arrow-direction setting), and char count;
+///   • a discreet framed container holding the copied text (its inset reveals
+///     leading spaces against the edge);
+///   • a footer legend of the three paste shortcuts.
+/// Full text is always pasted regardless of truncation.
 @MainActor
 final class BezelView: NSVisualEffectView {
-    static let size = NSSize(width: 460, height: 280)
+    static let size = NSSize(width: 506, height: 308) // 460×280 + 10%
 
+    private let appLabel = NSTextField(labelWithString: "")
+    private let nav = NSTextField(labelWithString: "")
+    private let charLabel = NSTextField(labelWithString: "")
+    private let divider = NSView()
+    private let container = NSView()
     private let body = NSTextField(wrappingLabelWithString: "")
-    private let footer = NSTextField(labelWithString: "")
+    private let legend = NSTextField(labelWithString: "")
 
     init() {
         super.init(frame: NSRect(origin: .zero, size: BezelView.size))
@@ -15,31 +25,85 @@ final class BezelView: NSVisualEffectView {
         blendingMode = .behindWindow
         state = .active
         wantsLayer = true
-        layer?.cornerRadius = 18
-        layer?.masksToBounds = true
+        // Round the corners by masking the *material* (maskImage), not the layer:
+        // layer cornerRadius + masksToBounds leaves a light fringe in the corner
+        // triangles of an NSVisualEffectView (visible over a light background). The
+        // mask makes everything beyond the rounded edge fully transparent.
+        maskImage = Self.roundedMaskImage(radius: 18)
 
-        configure(body, font: .systemFont(ofSize: 15), color: .labelColor)
-        body.maximumNumberOfLines = 10
+        // Header: app (left) · nav (center) · chars (right), one baseline.
+        configure(appLabel, font: .systemFont(ofSize: 11), color: .tertiaryLabelColor)
+        appLabel.lineBreakMode = .byTruncatingTail
+        appLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        configure(nav, font: .systemFont(ofSize: 12), color: .labelColor)
+        nav.alignment = .center
+        nav.setContentHuggingPriority(.required, for: .horizontal)
+        nav.setContentCompressionResistancePriority(.required, for: .horizontal)
+
+        configure(charLabel, font: .systemFont(ofSize: 11), color: .tertiaryLabelColor)
+        charLabel.alignment = .right
+        charLabel.lineBreakMode = .byTruncatingTail
+        charLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        // Hairline under the header for structure.
+        divider.wantsLayer = true
+        divider.layer?.backgroundColor = NSColor(white: 1, alpha: 0.10).cgColor
+        divider.translatesAutoresizingMaskIntoConstraints = false
+
+        // Discreet container framing the copied text — its inset reveals a leading
+        // space as a gap from the edge.
+        container.wantsLayer = true
+        container.layer?.cornerRadius = 8
+        container.layer?.borderWidth = 1
+        container.layer?.borderColor = NSColor(white: 1, alpha: 0.12).cgColor
+        container.layer?.backgroundColor = NSColor(white: 1, alpha: 0.05).cgColor
+        container.translatesAutoresizingMaskIntoConstraints = false
+
+        configure(body, font: .systemFont(ofSize: 14), color: .labelColor)
+        body.maximumNumberOfLines = 11
         body.lineBreakMode = .byTruncatingTail
         body.cell?.truncatesLastVisibleLine = true
-        body.preferredMaxLayoutWidth = BezelView.size.width - 44
+        body.preferredMaxLayoutWidth = BezelView.size.width - 32 - 24
 
-        configure(footer, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor)
-        footer.maximumNumberOfLines = 1
-        footer.lineBreakMode = .byTruncatingMiddle
+        configure(legend, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor)
+        legend.maximumNumberOfLines = 1
+        legend.alignment = .center
 
-        addSubview(body)
-        addSubview(footer)
+        [appLabel, nav, charLabel, divider, container, legend].forEach(addSubview)
+        container.addSubview(body)
 
         NSLayoutConstraint.activate([
-            body.topAnchor.constraint(equalTo: topAnchor, constant: 22),
-            body.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 22),
-            body.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -22),
-            body.bottomAnchor.constraint(lessThanOrEqualTo: footer.topAnchor, constant: -12),
+            nav.topAnchor.constraint(equalTo: topAnchor, constant: 14),
+            nav.centerXAnchor.constraint(equalTo: centerXAnchor),
 
-            footer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 22),
-            footer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -22),
-            footer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18)
+            appLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
+            appLabel.firstBaselineAnchor.constraint(equalTo: nav.firstBaselineAnchor),
+            appLabel.trailingAnchor.constraint(lessThanOrEqualTo: nav.leadingAnchor, constant: -10),
+
+            charLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -18),
+            charLabel.firstBaselineAnchor.constraint(equalTo: nav.firstBaselineAnchor),
+            charLabel.leadingAnchor.constraint(greaterThanOrEqualTo: nav.trailingAnchor, constant: 10),
+
+            divider.topAnchor.constraint(equalTo: nav.bottomAnchor, constant: 12),
+            divider.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            divider.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            divider.heightAnchor.constraint(equalToConstant: 1),
+
+            container.topAnchor.constraint(equalTo: divider.bottomAnchor, constant: 10),
+            container.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+            container.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
+            container.bottomAnchor.constraint(equalTo: legend.topAnchor, constant: -12),
+
+            body.topAnchor.constraint(equalTo: container.topAnchor, constant: 11),
+            body.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 12),
+            body.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -12),
+            body.bottomAnchor.constraint(lessThanOrEqualTo: container.bottomAnchor, constant: -11),
+
+            legend.centerXAnchor.constraint(equalTo: centerXAnchor),
+            legend.leadingAnchor.constraint(greaterThanOrEqualTo: leadingAnchor, constant: 16),
+            legend.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
+            legend.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -16)
         ])
     }
 
@@ -58,23 +122,92 @@ final class BezelView: NSVisualEffectView {
     }
 
     func update(item: ClipboardItem, index: Int, count: Int) {
-        body.stringValue = item.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        body.stringValue = previewText(item.text)
+        nav.attributedStringValue = navLine(index: index, count: count)
+        appLabel.stringValue = appName(for: item.sourceBundleID) ?? ""
+        charLabel.stringValue = charCountText(item.text.count)
+        legend.attributedStringValue = pasteLegend(
+            highlightReflow: TerminalText.looksLikeTerminalOutput(item.text))
+    }
 
-        var parts = ["\(index + 1) of \(count)"]
-        if let app = appName(for: item.sourceBundleID) { parts.append(app) }
-        parts.append(charCountText(item.text.count))
-        footer.stringValue = parts.joined(separator: "   ·   ")
+    /// `←  older     3 of 10     newer  →`. The arrows stay physically left/right
+    /// (matching the keys); the older/newer labels swap with the arrow-direction
+    /// setting, so the user can read which key walks back vs forward.
+    private func navLine(index: Int, count: Int) -> NSAttributedString {
+        let previousIsLeft = Settings.previousArrow == .left
+        let leftWord = previousIsLeft ? "older" : "newer"
+        let rightWord = previousIsLeft ? "newer" : "older"
+
+        let arrow: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 13), .foregroundColor: NSColor.secondaryLabelColor]
+        let word: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.tertiaryLabelColor]
+        let counter: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: 12.5, weight: .semibold), .foregroundColor: NSColor.labelColor]
+
+        let s = NSMutableAttributedString()
+        s.append(NSAttributedString(string: "←  ", attributes: arrow))
+        s.append(NSAttributedString(string: leftWord + "     ", attributes: word))
+        s.append(NSAttributedString(string: "\(index + 1) of \(count)", attributes: counter))
+        s.append(NSAttributedString(string: "     " + rightWord, attributes: word))
+        s.append(NSAttributedString(string: "  →", attributes: arrow))
+        return s
+    }
+
+    /// The three paste shortcuts, always shown. ⇧⏎ reflow is brightened when the
+    /// clip looks like terminal output — the case where it actually helps.
+    private func pasteLegend(highlightReflow: Bool) -> NSAttributedString {
+        let font = NSFont.systemFont(ofSize: 11, weight: .medium)
+        let normal: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.secondaryLabelColor]
+        var reflow = normal
+        if highlightReflow { reflow[.foregroundColor] = NSColor.labelColor }
+
+        let line = NSMutableAttributedString()
+        line.append(NSAttributedString(string: "⏎ plain      ⌥⏎ formatted      ", attributes: normal))
+        line.append(NSAttributedString(string: "⇧⏎ reflow", attributes: reflow))
+        return line
     }
 
     private func charCountText(_ count: Int) -> String {
         count == 1 ? "1 char" : "\(count) chars"
     }
 
+    /// What to show in the container: keep leading spaces (so they're revealed
+    /// against the edge), but drop leading blank lines and all trailing whitespace,
+    /// which would only waste preview height. The full text is still what gets pasted.
+    private func previewText(_ text: String) -> String {
+        var s = Substring(text)
+        while let f = s.first, f == "\n" || f == "\r" { s = s.dropFirst() }
+        while let l = s.last, l.isWhitespace { s = s.dropLast() }
+        return String(s)
+    }
+
+    /// App display name for a bundle id, memoised — `update` runs on every ← / →
+    /// keystroke, so the (synchronous) Launch Services / filesystem lookup must not
+    /// repeat per navigation. An empty cached value means "no resolvable name".
+    private var appNameCache: [String: String] = [:]
     private func appName(for bundleID: String?) -> String? {
-        guard let bundleID,
-              let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
-        else { return nil }
-        return FileManager.default.displayName(atPath: url.path)
-            .replacingOccurrences(of: ".app", with: "")
+        guard let bundleID else { return nil }
+        if let cached = appNameCache[bundleID] { return cached.isEmpty ? nil : cached }
+        let resolved = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map {
+            FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "")
+        }
+        appNameCache[bundleID] = resolved ?? ""
+        return resolved
+    }
+
+    /// A resizable rounded-rect mask (opaque inside, transparent outside) for the
+    /// visual effect view's `maskImage`, so the material is clipped to clean rounded
+    /// corners with no fringe.
+    private static func roundedMaskImage(radius: CGFloat) -> NSImage {
+        let side = radius * 2 + 1
+        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
+            return true
+        }
+        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
+        image.resizingMode = .stretch
+        return image
     }
 }

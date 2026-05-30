@@ -54,11 +54,13 @@ final class BezelController: NSObject, NSWindowDelegate {
 
     private func handle(_ key: BezelKey) {
         switch key {
-        case .older:   move(by: +1)
-        case .newer:   move(by: -1)
-        case .paste:   pasteCurrent()
-        case .dismiss: hide()
-        case .delete:  deleteCurrent()
+        case .older:       move(by: +1)
+        case .newer:       move(by: -1)
+        case .paste:       pasteCurrent(mode: .plain)
+        case .pasteRich:   pasteCurrent(mode: .rich)
+        case .pasteReflow: pasteCurrent(mode: .reflow)
+        case .dismiss:     hide()
+        case .delete:      deleteCurrent()
         }
     }
 
@@ -71,10 +73,24 @@ final class BezelController: NSObject, NSWindowDelegate {
         render()
     }
 
-    private func pasteCurrent() {
+    /// How ⏎ / ⌥⏎ / ⇧⏎ deliver the current entry. The stored item is never
+    /// mutated — only the outgoing paste is transformed.
+    private enum PasteMode { case plain, rich, reflow }
+
+    private func pasteCurrent(mode: PasteMode = .plain) {
         guard let item = history[index] else { hide(); return }
         hide()
-        Paster.paste(item.text, into: previousApp)
+        switch mode {
+        case .plain:
+            Paster.paste(item.text, into: previousApp)
+        case .rich:
+            // Prefer the source's own formatting when we captured it; otherwise
+            // synthesize from the entry's Markdown.
+            Paster.pasteFormatted(text: item.text, sourceHTML: item.html, into: previousApp)
+        case .reflow:
+            // Terminal output has no source HTML — reflow the text and synthesize.
+            Paster.pasteFormatted(text: TerminalText.reflow(item.text), sourceHTML: nil, into: previousApp)
+        }
         // Promote what we just used so it's the most-recent next time.
         history.insert(item)
     }

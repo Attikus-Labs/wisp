@@ -22,7 +22,9 @@ final class ClipboardHistory {
     }
 
     /// Insert a new entry at the front. Existing copies of the same text are
-    /// promoted to the front rather than duplicated.
+    /// promoted to the front rather than duplicated. Equality is by text only
+    /// (see `ClipboardItem`), so re-inserting *replaces* the prior entry — the
+    /// newest copy's captured HTML/source wins. Tests pin this behavior.
     func insert(_ item: ClipboardItem) {
         items.removeAll { $0 == item }
         items.insert(item, at: 0)
