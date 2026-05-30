@@ -1,0 +1,22 @@
+<svg width="120" height="120" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+  <!-- Monochrome template: black artwork on transparent; macOS tints it for
+       light and dark menu bars. Mirrors the app icon: a stacked clip history
+       (the back card fanned, matching the logo) with content lines = the clip. -->
+
+  <!-- Card behind (history), peeking up-right as a bracket -->
+  <path d="M96 92 V36 a12 12 0 0 0 -12 -12 H58"
+    fill="none" stroke="#000" stroke-width="8" stroke-linejoin="round" stroke-linecap="round"/>
+
+  <!-- Front card (current clipping) -->
+  <rect x="22" y="40" width="60" height="66" rx="13"
+    fill="none" stroke="#000" stroke-width="8" stroke-linejoin="round"/>
+
+  <!-- Clip on the front card -->
+  <path d="M40 41 a12 12 0 0 1 24 0 v1 a6 6 0 0 1 -6 6 h-12 a6 6 0 0 1 -6 -6 z" fill="#000"/>
+
+  <!-- Content lines = the lit clip, echoing the app icon -->
+  <g fill="#000">
+    <rect x="34" y="66" width="36" height="7.5" rx="3.75"/>
+    <rect x="34" y="82" width="24" height="7.5" rx="3.75"/>
+  </g>
+</svg>

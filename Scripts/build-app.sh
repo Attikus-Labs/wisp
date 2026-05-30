@@ -42,6 +42,12 @@ if [[ -f "$ROOT/Resources/AppIcon.icns" ]]; then
         "$APP/Contents/Info.plist" 2>/dev/null || true
 fi
 
+# Menu bar template glyph (the stacked-clips mark). Bundled so AppDelegate can
+# load it as a tintable template; harmless to omit (it falls back to a symbol).
+if [[ -f "$ROOT/Resources/MenuBarIcon.pdf" ]]; then
+    cp "$ROOT/Resources/MenuBarIcon.pdf" "$APP/Contents/Resources/MenuBarIcon.pdf"
+fi
+
 # Ad-hoc sign with the Hardened Runtime. CI overrides SIGN_IDENTITY with a
 # Developer ID Application certificate for distributable builds.
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"

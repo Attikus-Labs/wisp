@@ -46,13 +46,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setUpStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
-            let image = NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: AppInfo.name)
-            image?.isTemplate = true
-            button.image = image
+            button.image = statusItemImage()
             button.toolTip = "\(AppInfo.name) — \(AppInfo.tagline)"
         }
         item.menu = buildMenu()
         statusItem = item
+    }
+
+    /// The menu bar glyph. Prefers the bundled Wisp template (the stacked-clips
+    /// mark in Resources/MenuBarIcon.pdf), which renders as a monochrome
+    /// template that macOS tints for light and dark menu bars. Falls back to an
+    /// SF Symbol if the resource is missing (e.g. running from a bare build).
+    private func statusItemImage() -> NSImage? {
+        if let url = Bundle.main.url(forResource: "MenuBarIcon", withExtension: "pdf"),
+           let image = NSImage(contentsOf: url) {
+            image.isTemplate = true
+            image.size = NSSize(width: 18, height: 18)
+            image.accessibilityDescription = AppInfo.name
+            return image
+        }
+        let fallback = NSImage(systemSymbolName: "doc.on.clipboard", accessibilityDescription: AppInfo.name)
+        fallback?.isTemplate = true
+        return fallback
     }
 
     private func buildMenu() -> NSMenu {
