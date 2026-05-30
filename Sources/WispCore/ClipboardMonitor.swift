@@ -5,11 +5,6 @@ import AppKit
 /// on a light timer. At 0.5s with tolerance this is effectively free.
 @MainActor
 final class ClipboardMonitor {
-    /// Upper bound on retained source HTML per entry — keeps a pathological
-    /// multi-megabyte clipping from bloating the in-memory history. Past this, the
-    /// entry stays plain text and ⌥⏎ falls back to Markdown synthesis.
-    private static let maxCapturedHTMLBytes = 2_000_000
-
     private let pasteboard = NSPasteboard.general
     private var lastChangeCount: Int
     private var timer: Timer?
@@ -64,15 +59,25 @@ final class ClipboardMonitor {
         guard let text = pasteboard.string(forType: .string) else { return }
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
+        // Per-clip memory budget — the user's chosen ceiling on what Wisp will retain
+        // (0 == unlimited). The plain text is the canonical content, so a clip whose
+        // text alone blows the budget isn't recorded at all: it stays on the system
+        // pasteboard (a manual ⌘V still works), Wisp just won't remember it. Raising
+        // the cap in the menu is how you opt into keeping large pastes.
+        let cap = Settings.maxClipBytes
+        if cap != Settings.unlimitedClipBytes, text.utf8.count > cap { return }
+
         // Optionally keep the source's rich HTML in memory (for ⌥⏎ formatted paste).
         // Only reached for non-ignored items, so passwords/transient copies are
-        // already excluded by the privacy filter above. Skip blank HTML (would
-        // paste as an empty rich flavor) and bound the size we retain.
+        // already excluded by the privacy filter above. Skip blank HTML (would paste
+        // as an empty rich flavor) and hold it to the same per-clip budget — HTML over
+        // the cap is dropped, the entry stays plain text, and ⌥⏎ falls back to Markdown
+        // synthesis, so one giant rich clip can't bloat RAM.
         var html: String?
         if Settings.keepFormatting,
            let h = pasteboard.string(forType: .html),
            !h.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-           h.utf8.count <= Self.maxCapturedHTMLBytes {
+           cap == Settings.unlimitedClipBytes || h.utf8.count <= cap {
             html = h
         }
 

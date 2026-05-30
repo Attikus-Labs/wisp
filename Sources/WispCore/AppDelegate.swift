@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var launchItem: NSMenuItem?
     private var accessibilityItem: NSMenuItem?
     private var sizeItems: [NSMenuItem] = []
+    private var maxClipItems: [NSMenuItem] = []
     private var directionItems: [NSMenuItem] = []
     private var keepFormattingItem: NSMenuItem?
 
@@ -105,6 +106,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sizeParent.submenu = sizeMenu
         menu.addItem(sizeParent)
 
+        // Max clip size submenu — your per-clip memory budget (covers text and HTML).
+        let clipParent = NSMenuItem(title: "Max Clip Size", action: nil, keyEquivalent: "")
+        let clipMenu = NSMenu()
+        maxClipItems = Settings.allowedMaxClipByteSizes.map { bytes in
+            let item = NSMenuItem(title: Settings.clipSizeLabel(bytes),
+                                  action: #selector(changeMaxClipSize(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = bytes
+            clipMenu.addItem(item)
+            return item
+        }
+        clipParent.submenu = clipMenu
+        menu.addItem(clipParent)
+
         // Arrow direction submenu — which arrow walks back to previous copies.
         let dirParent = NSMenuItem(title: "Arrow Direction", action: nil, keyEquivalent: "")
         let dirMenu = NSMenu()
@@ -166,6 +181,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func changeSize(_ sender: NSMenuItem) {
         Settings.historySize = sender.tag
         history.setCapacity(sender.tag)
+    }
+
+    @objc private func changeMaxClipSize(_ sender: NSMenuItem) {
+        // Applies to clips captured from here on; existing entries are left as-is
+        // (Clear History drops any older large ones).
+        Settings.maxClipBytes = sender.tag
     }
 
     @objc private func changeDirection(_ sender: NSMenuItem) {
@@ -234,6 +255,9 @@ extension AppDelegate: NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         for item in sizeItems {
             item.state = (item.tag == history.capacity) ? .on : .off
+        }
+        for item in maxClipItems {
+            item.state = (item.tag == Settings.maxClipBytes) ? .on : .off
         }
         for item in directionItems {
             let raw = item.representedObject as? String

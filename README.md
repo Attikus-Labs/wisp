@@ -1,6 +1,6 @@
 <h1 align="center">Wisp</h1>
 
-<p align="center"><em>A light, fast, secure clipboard bezel for macOS.</em></p>
+<p align="center"><em>The AI-friendly clipboard bezel for macOS — keep the formatting you meant to keep.</em></p>
 
 <p align="center">
   <a href="https://github.com/Attikus-Labs/wisp/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Attikus-Labs/wisp/actions/workflows/ci.yml/badge.svg"></a>
@@ -10,10 +10,16 @@
   <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-zero-brightgreen">
 </p>
 
-Press **⌘⇧V**, a translucent bezel shows your most recent clipping, **←/→** walk
-back and forth through the last 40, **⏎** pastes (**⌥⏎** pastes *with
-formatting*). That's the whole app — the classic Jumpcut/Flycut interaction,
-rebuilt natively for Apple Silicon, with a security-first design.
+Wisp is a clipboard built for working with AI tools. Copy comes out of
+**Claude Code**, **Codex**, **ChatGPT** and the **Claude** app in wildly
+different shapes — terminal text mangled by hard-wraps and box glyphs, rich HTML
+from a web answer, raw Markdown from a **Copy** button — and Wisp gives you the
+controls to keep exactly the formatting you want.
+
+Press **⌘⇧V** and a translucent bezel shows your most recent clipping; **←/→**
+walk through the last 40; then pick how it lands: **⏎** plain, **⌥⏎** formatted,
+**⇧⏎** reflowed. It's the classic Jumpcut/Flycut bezel, rebuilt natively for
+Apple Silicon, with a security-first design.
 
 > **Why this exists.** [Flycut](https://github.com/TermiT/Flycut) — the clipboard
 > manager a lot of us have used for a decade — hasn't had a real update since
@@ -26,23 +32,80 @@ rebuilt natively for Apple Silicon, with a security-first design.
 
 ---
 
+## Three ways to paste
+
+The same clipboard entry can land three different ways. All three keys are always
+live on the bezel (the `⇧⏎` hint brightens when a clip looks like terminal output).
+The plain text is **always** present on the pasteboard too, so a plain-text editor
+gets clean text no matter which mode you choose.
+
+| Key | Mode | Best for | What lands |
+|-----|------|----------|------------|
+| **⏎** | **Plain** | Anything you want verbatim | Exactly the characters you copied — nothing added, no formatting. |
+| **⌥⏎** | **Formatted** | ChatGPT / Claude answers (rich select-and-copy), or any assistant **Copy** button (Markdown) | Real **bold**, *italics*, lists, headings, links and code blocks in rich apps; clean text in plain editors. |
+| **⇧⏎** | **Reflowed** | Claude Code, Codex & other terminal output | Terminal noise (ANSI codes, hard wraps, `•`/`▸`/`└` glyphs) cleaned up and re-listed, then pasted formatted; tool-result logs kept verbatim. |
+
+### ⏎ — Plain
+
+What you copied is what lands: the stored plain text, nothing added. The classic
+clipboard-manager behavior, and the safe default for code, paths, tokens, or
+anything you want byte-for-byte.
+
+### ⌥⏎ — Formatted
+
+Reproduces the **source's** formatting, using the richest representation available —
+in order of fidelity:
+
+- **Exact passthrough.** When you *select and copy* from a web answer (the **Claude**
+  app, **ChatGPT**, etc.), the source app puts its own HTML on the clipboard. Wisp
+  captures that HTML at copy time and re-emits it **verbatim** for a faithful match —
+  including tables and structure the app rendered. It's re-emitted *unparsed*, on
+  purpose: parsing untrusted HTML could trigger a hidden network fetch, and Wisp never
+  touches the network.
+- **Markdown rendering.** When there's no source HTML — a plain copy, or an assistant's
+  **Copy** button that drops Markdown on the clipboard — Wisp renders that Markdown to
+  HTML (and RTF) on the fly at paste time. Supported subset: ATX headings (`#`–`######`),
+  **bold**, *italic*, ~~strikethrough~~, `inline code`, fenced code blocks (with language
+  hint), `[links](url)` (safe schemes only), blockquotes, ordered & unordered lists, and
+  horizontal rules. It's a deliberately small, auditable subset — exactly what chat
+  assistants emit — so nested lists flatten to a single level.
+
+Rich targets (Slack, Notes, Mail) get the formatting; plain-text editors (Sublime,
+Obsidian) read the plain-text flavor on the same clip and still get clean text. The
+captured source HTML is held **in memory only** — never written to disk, kept within
+the per-clip size budget you set ([Memory & limits](#memory--limits), default 2 MB),
+and fully opt-out via menu → *Keep Source Formatting*.
+
+### ⇧⏎ — Reflowed
+
+Text copied out of a terminal — **Claude Code**, the **Codex** CLI, anything in
+iTerm/WezTerm — arrives wrecked: ANSI colour codes, every line hard-wrapped at the
+terminal width, list bullets and box-tree borders reduced to literal `•`/`▸`/`└`
+glyphs, all real formatting gone. `⇧⏎` runs a best-effort repair, then pastes the
+result formatted:
+
+1. strips ANSI / control sequences,
+2. turns leading bullet & box-tree glyphs back into Markdown list items,
+3. un-wraps hard-wrapped paragraph lines so they reflow in the target,
+4. keeps tool-result blocks (Claude Code's `⎿` output) **verbatim inside a code
+   block**, so column-aligned build logs, diffs and trees don't get glued into
+   run-on text.
+
+It's openly heuristic and lossy — the original Markdown can't be recovered perfectly —
+so it's opt-in per paste and **never** rewrites your saved history. The bezel brightens
+the `⇧⏎ reflow` hint only when the current clip actually looks like terminal output, so
+it stays out of the way the rest of the time.
+
 ## Features
 
 - **The bezel you know.** One clip at a time, arrows cycle history (looping; direction configurable), `⏎` to
   paste (`⌥⏎` to paste with formatting), `esc` to dismiss, `⌫` to drop an entry.
-- **Formatted paste.** `⌥⏎` pastes with real **bold**, lists and code into rich
-  apps (Slack, Notes, Mail), while plain-text editors (Sublime, Obsidian) still get
-  clean text. It uses the richest source available: if you *selected and copied*
-  from Claude/ChatGPT, Wisp re-emits the source's own HTML for an exact match; if
-  the clip is Markdown (e.g. an assistant's **Copy** button), it renders that. The
-  optional source HTML is held **in memory only** — never written to disk — and you
-  can turn it off (menu → *Keep Source Formatting*) for a strictly plain-text
-  history.
-- **Terminal-aware.** Text copied out of a terminal (Claude Code, etc.) arrives
-  hard-wrapped with literal bullet/box glyphs and stripped formatting. `⇧⏎` runs a
-  best-effort reflow — un-wrap, de-glyph, re-list — then pastes it formatted. The
-  bezel only advertises `⇧⏎` when the current entry actually looks like terminal
-  output, so it stays out of the way otherwise.
+- **Three ways to paste.** `⏎` plain, `⌥⏎` formatted, `⇧⏎` reflowed — pick how each
+  clip lands so AI output keeps the formatting you want. See
+  [Three ways to paste](#three-ways-to-paste) above for exactly what each supports.
+  The optional source HTML formatted paste relies on is held **in memory only** —
+  never written to disk — and you can turn it off (menu → *Keep Source Formatting*)
+  for a strictly plain-text history.
 - **Native & light.** Swift + AppKit, a single tiny native binary, no Dock
   icon — it lives in the menu bar. No Electron, no web view.
 - **Zero third-party dependencies.** The only code that touches your clipboard
@@ -52,8 +115,11 @@ rebuilt natively for Apple Silicon, with a security-first design.
     privacy markers (`ConcealedType`, `TransientType`, `AutoGeneratedType`) and
     a denylist of known password managers, so passwords copied from 1Password,
     Bitwarden, KeePassXC, etc. never enter the history.
-  - **Memory-only.** History lives in RAM and is bounded to 40 items. Nothing is
-    ever written to disk — quit Wisp (or reboot) and the history is gone.
+  - **Memory-only, and you set the budget.** History lives in RAM, never on disk —
+    quit Wisp (or reboot) and it's gone. Two bounds keep it light, both yours to
+    change in the menu: the number of entries (10/20/40/80, default 40) and a
+    **per-clip size cap** (default **2 MB**) that applies to every field Wisp retains —
+    plain text *and* captured HTML. See [Memory & limits](#memory--limits).
   - **No network. At all.** Wisp has no networking code and no network
     entitlement; nothing you copy can leave your Mac.
   - **Minimal permissions.** One optional grant — Accessibility — used solely to
@@ -108,10 +174,11 @@ prompts**.
 | **esc** | Dismiss |
 | **⌫** | Remove the current entry from history |
 
-Menu-bar menu: show clipboard, clear history, history size (10/20/40/80), arrow
-direction (which arrow walks back to previous copies), **Keep Source Formatting**
-(retain source HTML in memory for `⌥⏎`; on by default), launch at login, and the
-Accessibility toggle.
+Menu-bar menu: show clipboard, clear history, history size (10/20/40/80), **Max Clip
+Size** (per-clip memory budget — 1/2/5/10/50 MB or Unlimited, default 2 MB; applies to
+text and captured HTML), arrow direction (which arrow walks back to previous copies),
+**Keep Source Formatting** (retain source HTML in memory for `⌥⏎`; on by default),
+launch at login, and the Accessibility toggle.
 
 ## Security
 
@@ -121,10 +188,40 @@ model is in **[docs/SECURITY.md](docs/SECURITY.md)**. The short version:
 | Concern | Wisp's answer |
 |---|---|
 | Passwords ending up in history | Skipped via nspasteboard markers + password-manager denylist |
-| History persisted to disk | Never — memory-only, bounded to 40 items |
+| History persisted to disk | Never — memory-only; quit or reboot and it's gone |
+| Runaway memory use | Bounded on both axes you control: entry count (10/20/40/80) and a per-clip size cap (default 2 MB, covers text + captured HTML, up to Unlimited) — see [Memory & limits](#memory--limits) |
 | Data leaving your machine | Impossible — no networking code, no network entitlement |
 | Supply-chain risk | Zero third-party dependencies |
 | Excess permissions | Accessibility only, only for paste; **not** sandboxed because auto-paste requires synthesizing keys into other apps (the same posture Maccy takes) |
+
+## Memory & limits
+
+Wisp's whole history lives in RAM (never on disk), so it's worth being deliberate
+about how much RAM it may use — and that knob is **yours**. There are two bounds, both
+in the menu:
+
+- **History size** — how many entries to keep: **10 / 20 / 40 / 80** (default 40).
+  Oldest entries fall off the end as new ones arrive; re-copying the same text just
+  moves it back to the front instead of adding a duplicate.
+- **Max clip size** — a per-clip byte budget that applies to **every field Wisp
+  retains: the plain text *and* the captured rich HTML**. Choose **1 / 2 / 5 / 10 /
+  50 MB** or **Unlimited** (default **2 MB**).
+
+How the per-clip cap behaves:
+
+| Situation | What happens |
+|---|---|
+| A clip's **text** is over the cap | Not remembered at all — it stays on the system clipboard, so a normal **⌘V still works**; Wisp just won't add it to history. |
+| A clip's **HTML** is over the cap (text under it) | The HTML is dropped, the entry is kept as plain text, and `⌥⏎` falls back to rendering the clip's Markdown. |
+| **Unlimited** | No cap — Wisp keeps whatever you copy, however large. |
+
+So the worst-case memory for the history is roughly *history size × max clip size* (≈
+80 MB at the defaults, ≈ 4 GB at 80 × 50 MB), entirely under your control. Copying very
+large texts is genuinely useful — diffs, logs, whole files — and Wisp lets you keep them
+when you decide that's worth the memory: just raise the cap. Prefer a featherweight
+clipboard? Drop it to 1 MB. Either way you're trading memory for history on purpose, not
+by accident. Changing the cap affects clips captured from then on; **Clear History**
+drops anything already held.
 
 ## Development
 
