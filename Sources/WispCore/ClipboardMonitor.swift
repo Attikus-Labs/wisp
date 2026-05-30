@@ -47,8 +47,19 @@ final class ClipboardMonitor {
         guard current != lastChangeCount else { return }
         lastChangeCount = current
 
-        // Respect privacy markers: passwords & transient data never get recorded.
-        guard !PrivacyFilter.shouldIgnore(pasteboard) else { return }
+        // The originating app: prefer the advertised nspasteboard source marker,
+        // else the frontmost app at copy time — how a clip's origin is usually known,
+        // since few apps set the marker. Used both to label the entry and to widen
+        // the privacy net.
+        let source = PrivacyFilter.source(of: pasteboard)
+            ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+
+        // Respect privacy markers, and skip known-secret source apps even when they
+        // set no marker (belt-and-suspenders for password managers). Checking the
+        // frontmost app here is what stops a marker-less password manager's copy from
+        // being both recorded AND labelled with its name.
+        let types = (pasteboard.types ?? []).map(\.rawValue)
+        guard !PrivacyFilter.shouldIgnore(types: types, source: source) else { return }
 
         guard let text = pasteboard.string(forType: .string) else { return }
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -65,8 +76,7 @@ final class ClipboardMonitor {
             html = h
         }
 
-        history.insert(ClipboardItem(text: text, html: html,
-                                     sourceBundleID: PrivacyFilter.source(of: pasteboard)))
+        history.insert(ClipboardItem(text: text, html: html, sourceBundleID: source))
         onRecord?()
     }
 }
