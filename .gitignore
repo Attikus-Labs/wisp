@@ -1,0 +1,33 @@
+# Swift Package Manager
+.build/
+.swiftpm/
+Package.resolved
+
+# Build output
+/dist/
+*.app
+*.dmg
+*.zip
+
+# Xcode (in case anyone opens the package there)
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Signing secrets — never commit these
+*.p12
+*.cer
+*.provisionprofile
+*.mobileprovision
+AuthKey_*.p8
+.env
+.env.*
+secrets/
+
+# macOS
+.DS_Store
+
+# Claude Code local config
+.claude/

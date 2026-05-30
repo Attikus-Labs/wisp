@@ -1,0 +1,72 @@
+name: Release
+
+# Tag a commit (e.g. `git tag v0.1.0 && git push --tags`) to cut a release.
+#
+# This builds, Developer-ID signs, notarizes, staples, packages a .dmg, and
+# attaches it to a GitHub Release. It needs the repository secrets listed in
+# docs/RELEASING.md. Until those are set, releases simply won't run — the rest
+# of the project (CI, local builds) works without them.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Import Developer ID certificate
+        env:
+          DEV_ID_CERT_P12_BASE64: ${{ secrets.DEV_ID_CERT_P12_BASE64 }}
+          DEV_ID_CERT_PASSWORD: ${{ secrets.DEV_ID_CERT_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -base64 24)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$DEV_ID_CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$DEV_ID_CERT_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" login.keychain-db
+
+      - name: Build app bundle
+        env:
+          SIGN_IDENTITY: ${{ secrets.SIGN_IDENTITY }}
+        run: Scripts/build-app.sh release
+
+      - name: Notarize and staple
+        env:
+          SIGN_IDENTITY: ${{ secrets.SIGN_IDENTITY }}
+          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
+          AC_API_KEY_P8_BASE64: ${{ secrets.AC_API_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          echo "$AC_API_KEY_P8_BASE64" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
+          export AC_API_KEY_P8_PATH="$RUNNER_TEMP/AuthKey.p8"
+          Scripts/sign-notarize.sh
+
+      - name: Build DMG
+        run: Scripts/make-dmg.sh
+
+      - name: Compute checksums
+        run: |
+          cd dist
+          shasum -a 256 Wisp-*.dmg Wisp.zip | tee SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Wisp-*.dmg
+            dist/Wisp.zip
+            dist/SHA256SUMS.txt
+          generate_release_notes: true
