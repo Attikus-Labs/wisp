@@ -3,11 +3,13 @@ import Carbon.HIToolbox
 
 /// A key press the bezel cares about.
 enum BezelKey {
-    case older     // step back into history (further from the newest)
-    case newer     // step toward the most-recent copy
-    case paste     // ⏎
-    case dismiss   // esc
-    case delete    // ⌫ : drop the current entry
+    case older       // step back into history (further from the newest)
+    case newer       // step toward the most-recent copy
+    case paste       // ⏎ : paste plain text
+    case pasteRich   // ⌥⏎ : paste with formatting (render Markdown → rich text)
+    case pasteReflow // ⇧⏎ : reflow terminal output, then paste formatted
+    case dismiss     // esc
+    case delete      // ⌫ : drop the current entry
 }
 
 /// Borderless floating panel that hosts the bezel. It overrides `canBecomeKey`
@@ -50,7 +52,16 @@ final class BezelPanel: NSPanel {
         case kVK_RightArrow, kVK_DownArrow:
             onKey?(leftIsOlder ? .newer : .older)
         case kVK_Return, kVK_ANSI_KeypadEnter:
-            onKey?(.paste)
+            // ⇧ reflows terminal output then pastes formatted; ⌥ pastes with
+            // formatting; plain ⏎ stays the default.
+            let mods = event.modifierFlags
+            if mods.contains(.shift) {
+                onKey?(.pasteReflow)
+            } else if mods.contains(.option) {
+                onKey?(.pasteRich)
+            } else {
+                onKey?(.paste)
+            }
         case kVK_Escape:
             onKey?(.dismiss)
         case kVK_Delete, kVK_ForwardDelete:

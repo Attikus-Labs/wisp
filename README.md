@@ -11,9 +11,9 @@
 </p>
 
 Press **⌘⇧V**, a translucent bezel shows your most recent clipping, **←/→** walk
-back and forth through the last 40, **⏎** pastes. That's the whole app — the
-classic Jumpcut/Flycut interaction, rebuilt natively for Apple Silicon, with a
-security-first design.
+back and forth through the last 40, **⏎** pastes (**⌥⏎** pastes *with
+formatting*). That's the whole app — the classic Jumpcut/Flycut interaction,
+rebuilt natively for Apple Silicon, with a security-first design.
 
 > **Why this exists.** [Flycut](https://github.com/TermiT/Flycut) — the clipboard
 > manager a lot of us have used for a decade — hasn't had a real update since
@@ -29,7 +29,17 @@ security-first design.
 ## Features
 
 - **The bezel you know.** One clip at a time, arrows cycle history (looping; direction configurable), `⏎` to
-  paste, `esc` to dismiss, `⌫` to drop an entry.
+  paste (`⌥⏎` to paste with formatting), `esc` to dismiss, `⌫` to drop an entry.
+- **Formatted paste, still text-only.** `⌥⏎` renders the entry's Markdown to rich
+  text on the fly, so a Claude/ChatGPT answer pastes with real **bold**, lists and
+  code into Slack, Notes or Mail — while Sublime, Obsidian and other plain-text
+  editors still receive the clean Markdown. The HTML/RTF is generated *at paste
+  time* and never stored: the history stays plain text, memory-only.
+- **Terminal-aware.** Text copied out of a terminal (Claude Code, etc.) arrives
+  hard-wrapped with literal bullet/box glyphs and stripped formatting. `⇧⏎` runs a
+  best-effort reflow — un-wrap, de-glyph, re-list — then pastes it formatted. The
+  bezel only advertises `⇧⏎` when the current entry actually looks like terminal
+  output, so it stays out of the way otherwise.
 - **Native & light.** Swift + AppKit, a single tiny native binary, no Dock
   icon — it lives in the menu bar. No Electron, no web view.
 - **Zero third-party dependencies.** The only code that touches your clipboard
@@ -89,7 +99,9 @@ prompts**.
 | **⌘⇧V** | Show / hide the bezel |
 | **←** or **↑** | Previous (older) entry — loops past the oldest |
 | **→** or **↓** | Next (newer) entry — loops past the newest |
-| **⏎** | Paste the current entry into the app you came from |
+| **⏎** | Paste the current entry into the app you came from (plain text) |
+| **⌥⏎** | Paste **with formatting** — render the entry's Markdown to rich text (bold, lists, code) for apps like Slack, Notes & Mail; plain-text editors still get the Markdown |
+| **⇧⏎** | Paste **reflowed** — best-effort cleanup of text copied from a terminal (e.g. Claude Code): strip ANSI, turn bullet/tree glyphs into lists, un-wrap hard-wrapped lines, then paste formatted |
 | **esc** | Dismiss |
 | **⌫** | Remove the current entry from history |
 
@@ -133,6 +145,8 @@ Sources/
     GlobalHotkey.swift      ← ⌘⇧V via Carbon RegisterEventHotKey (no deps)
     Bezel*.swift            ← the borderless floating HUD + arrow navigation
     Paster.swift            ← sets the pasteboard, synthesizes ⌘V
+    MarkdownRenderer.swift  ← Markdown → HTML for ⌥⏎ formatted paste (deps-free)
+    TerminalText.swift      ← ⇧⏎ best-effort reflow of terminal copies (deps-free)
     AppDelegate.swift       ← menu bar wiring
   Wisp/                     ← tiny executable entry point
 ```

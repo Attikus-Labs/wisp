@@ -8,6 +8,7 @@ final class BezelView: NSVisualEffectView {
 
     private let body = NSTextField(wrappingLabelWithString: "")
     private let footer = NSTextField(labelWithString: "")
+    private let hint = NSTextField(labelWithString: "")
 
     init() {
         super.init(frame: NSRect(origin: .zero, size: BezelView.size))
@@ -28,8 +29,18 @@ final class BezelView: NSVisualEffectView {
         footer.maximumNumberOfLines = 1
         footer.lineBreakMode = .byTruncatingMiddle
 
+        // Discreet, right-aligned reminder of the paste modifiers. Never truncates;
+        // the info footer yields space to it instead.
+        configure(hint, font: .systemFont(ofSize: 10, weight: .medium), color: .tertiaryLabelColor)
+        hint.maximumNumberOfLines = 1
+        hint.alignment = .right
+        hint.setContentHuggingPriority(.required, for: .horizontal)
+        hint.setContentCompressionResistancePriority(.required, for: .horizontal)
+        footer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
         addSubview(body)
         addSubview(footer)
+        addSubview(hint)
 
         NSLayoutConstraint.activate([
             body.topAnchor.constraint(equalTo: topAnchor, constant: 22),
@@ -38,8 +49,11 @@ final class BezelView: NSVisualEffectView {
             body.bottomAnchor.constraint(lessThanOrEqualTo: footer.topAnchor, constant: -12),
 
             footer.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 22),
-            footer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -22),
-            footer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18)
+            footer.trailingAnchor.constraint(lessThanOrEqualTo: hint.leadingAnchor, constant: -10),
+            footer.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -18),
+
+            hint.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -22),
+            hint.firstBaselineAnchor.constraint(equalTo: footer.firstBaselineAnchor)
         ])
     }
 
@@ -64,6 +78,12 @@ final class BezelView: NSVisualEffectView {
         if let app = appName(for: item.sourceBundleID) { parts.append(app) }
         parts.append(charCountText(item.text.count))
         footer.stringValue = parts.joined(separator: "   ·   ")
+
+        // Always advertise formatted paste; surface reflow only when the entry
+        // looks like wrapped terminal output, where it actually helps.
+        hint.stringValue = TerminalText.looksLikeTerminalOutput(item.text)
+            ? "⌥⏎ formatted   ⇧⏎ reflow"
+            : "⌥⏎ formatted"
     }
 
     private func charCountText(_ count: Int) -> String {
