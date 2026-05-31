@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var maxClipItems: [NSMenuItem] = []
     private var directionItems: [NSMenuItem] = []
     private var keepFormattingItem: NSMenuItem?
+    private var appearanceItems: [NSMenuItem] = []
 
     override init() {
         let history = ClipboardHistory(capacity: Settings.historySize)
@@ -144,6 +145,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(keepFormatting)
         keepFormattingItem = keepFormatting
 
+        // Bezel appearance — force the card's shade so the translucent material
+        // stays legible over any desktop (default Dark).
+        let appearanceParent = NSMenuItem(title: "Bezel Appearance", action: nil, keyEquivalent: "")
+        let appearanceMenu = NSMenu()
+        let appearanceOptions: [(Settings.BezelAppearance, String)] = [
+            (.dark,  "Dark"),
+            (.light, "Light"),
+            (.auto,  "Auto (match System)")
+        ]
+        appearanceItems = appearanceOptions.map { appearance, label in
+            let item = NSMenuItem(title: label, action: #selector(changeBezelAppearance(_:)), keyEquivalent: "")
+            item.target = self
+            item.representedObject = appearance.rawValue
+            appearanceMenu.addItem(item)
+            return item
+        }
+        appearanceParent.submenu = appearanceMenu
+        menu.addItem(appearanceParent)
+
+        // Bezel transparency — a live Translucent↔Solid slider (custom menu view).
+        // Dragging restyles the bezel on screen in real time: the controller pops it
+        // up as a focus-preserving preview (so this menu stays open) and tears it
+        // down when the menu closes (see menuDidClose).
+        let transparency = NSMenuItem()
+        transparency.view = TransparencySliderView(value: Settings.bezelSolidness) { [weak self] value in
+            Settings.bezelSolidness = value
+            self?.bezel.previewStyle()
+        }
+        menu.addItem(transparency)
+
         let launch = NSMenuItem(title: "Launch at Login", action: #selector(toggleLaunchAtLogin), keyEquivalent: "")
         launch.target = self
         menu.addItem(launch)
@@ -156,6 +187,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         accessibilityItem = accessibility
 
         menu.addItem(.separator())
+
+        let checkUpdates = NSMenuItem(title: "Check for Updates…",
+                                      action: #selector(checkForUpdates), keyEquivalent: "")
+        checkUpdates.target = self
+        menu.addItem(checkUpdates)
 
         let about = NSMenuItem(title: "About \(AppInfo.name)", action: #selector(showAbout), keyEquivalent: "")
         about.target = self
@@ -199,6 +235,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Settings.keepFormatting.toggle()
     }
 
+    @objc private func changeBezelAppearance(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let appearance = Settings.BezelAppearance(rawValue: raw) else { return }
+        Settings.bezelAppearance = appearance
+        bezel.previewStyle() // reflect the new shade live, like the transparency slider
+    }
+
     @objc private func toggleLaunchAtLogin() {
         setLaunchAtLogin(!isLaunchAtLoginEnabled)
     }
@@ -206,6 +249,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openAccessibility() {
         AccessibilityAuthorizer.requestIfNeeded()
         AccessibilityAuthorizer.openSettings()
+    }
+
+    @objc private func checkForUpdates() {
+        // Wisp itself never touches the network (see docs/SECURITY.md). This hands
+        // the latest-release page to the user's browser, which shows the newest
+        // version and the build-from-source install steps — the comparison is
+        // theirs to make (the menu title above shows the running version).
+        NSWorkspace.shared.open(AppInfo.latestReleaseURL)
     }
 
     @objc private func showAbout() {
@@ -264,6 +315,10 @@ extension AppDelegate: NSMenuDelegate {
             item.state = (raw == Settings.previousArrow.rawValue) ? .on : .off
         }
         keepFormattingItem?.state = Settings.keepFormatting ? .on : .off
+        for item in appearanceItems {
+            let raw = item.representedObject as? String
+            item.state = (raw == Settings.bezelAppearance.rawValue) ? .on : .off
+        }
         launchItem?.state = isLaunchAtLoginEnabled ? .on : .off
 
         if AccessibilityAuthorizer.isTrusted {
@@ -273,5 +328,82 @@ extension AppDelegate: NSMenuDelegate {
             accessibilityItem?.title = "Enable Paste (Accessibility)…"
             accessibilityItem?.isEnabled = true
         }
+    }
+
+    /// When the menu closes, dismiss any live style preview the transparency slider
+    /// popped up. No-op if the bezel was opened for real.
+    func menuDidClose(_ menu: NSMenu) {
+        bezel.endPreview()
+    }
+}
+
+// MARK: - Transparency slider (custom menu item view)
+
+/// A menu-embedded slider for the bezel's Translucent↔Solid setting: a title row
+/// over a slider flanked by end-stop captions. Reports its value continuously as
+/// the user drags; the menu stays open while interacting (standard for view-based
+/// items), so the change is saved immediately and applied the next time the bezel
+/// is shown.
+@MainActor
+final class TransparencySliderView: NSView {
+    private let slider = NSSlider()
+    private let onChange: (Double) -> Void
+
+    init(value: Double, onChange: @escaping (Double) -> Void) {
+        self.onChange = onChange
+        super.init(frame: NSRect(x: 0, y: 0, width: 240, height: 56))
+        translatesAutoresizingMaskIntoConstraints = false
+
+        let title = NSTextField(labelWithString: "Bezel Transparency")
+        title.font = .systemFont(ofSize: 13)
+        title.textColor = .labelColor
+
+        let left = caption("Translucent")
+        let right = caption("Solid")
+
+        slider.minValue = 0
+        slider.maxValue = 1
+        slider.doubleValue = min(max(value, 0), 1)
+        slider.isContinuous = true
+        slider.target = self
+        slider.action = #selector(sliderChanged)
+
+        for view in [title, left, slider, right] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+        }
+
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 240),
+            heightAnchor.constraint(equalToConstant: 56),
+
+            title.topAnchor.constraint(equalTo: topAnchor, constant: 6),
+            title.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+
+            left.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
+            left.centerYAnchor.constraint(equalTo: slider.centerYAnchor),
+
+            right.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -14),
+            right.centerYAnchor.constraint(equalTo: slider.centerYAnchor),
+
+            slider.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 6),
+            slider.leadingAnchor.constraint(equalTo: left.trailingAnchor, constant: 8),
+            slider.trailingAnchor.constraint(equalTo: right.leadingAnchor, constant: -8),
+        ])
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    private func caption(_ text: String) -> NSTextField {
+        let field = NSTextField(labelWithString: text)
+        field.font = .systemFont(ofSize: 10)
+        field.textColor = .tertiaryLabelColor
+        return field
+    }
+
+    @objc private func sliderChanged() {
+        onChange(slider.doubleValue)
     }
 }

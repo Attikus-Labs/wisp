@@ -10,6 +10,7 @@ enum BezelKey {
     case pasteReflow // ⇧⏎ : reflow terminal output, then paste formatted
     case dismiss     // esc
     case delete      // ⌫ : drop the current entry
+    case search      // / : switch the bezel into search-the-history mode
 }
 
 /// Borderless floating panel that hosts the bezel. It overrides `canBecomeKey`
@@ -66,6 +67,9 @@ final class BezelPanel: NSPanel {
             onKey?(.dismiss)
         case kVK_Delete, kVK_ForwardDelete:
             onKey?(.delete)
+        case kVK_ANSI_Slash:
+            // vi-style: "/" drops the carousel into search-the-history mode.
+            onKey?(.search)
         default:
             super.keyDown(with: event)
         }

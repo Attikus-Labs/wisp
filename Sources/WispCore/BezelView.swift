@@ -8,7 +8,7 @@ import AppKit
 ///   • a footer legend of the three paste shortcuts.
 /// Full text is always pasted regardless of truncation.
 @MainActor
-final class BezelView: NSVisualEffectView {
+final class BezelView: BezelEffectView {
     static let size = NSSize(width: 506, height: 308) // 460×280 + 10%
 
     private let appLabel = NSTextField(labelWithString: "")
@@ -20,16 +20,7 @@ final class BezelView: NSVisualEffectView {
     private let legend = NSTextField(labelWithString: "")
 
     init() {
-        super.init(frame: NSRect(origin: .zero, size: BezelView.size))
-        material = .hudWindow
-        blendingMode = .behindWindow
-        state = .active
-        wantsLayer = true
-        // Round the corners by masking the *material* (maskImage), not the layer:
-        // layer cornerRadius + masksToBounds leaves a light fringe in the corner
-        // triangles of an NSVisualEffectView (visible over a light background). The
-        // mask makes everything beyond the rounded edge fully transparent.
-        maskImage = Self.roundedMaskImage(radius: 18)
+        super.init(size: BezelView.size) // material, rounded mask & scrim live in the base
 
         // Header: app (left) · nav (center) · chars (right), one baseline.
         configure(appLabel, font: .systemFont(ofSize: 11), color: .tertiaryLabelColor)
@@ -124,7 +115,7 @@ final class BezelView: NSVisualEffectView {
     func update(item: ClipboardItem, index: Int, count: Int) {
         body.stringValue = previewText(item.text)
         nav.attributedStringValue = navLine(index: index, count: count)
-        appLabel.stringValue = appName(for: item.sourceBundleID) ?? ""
+        appLabel.stringValue = AppDisplayName.resolve(item.sourceBundleID) ?? ""
         charLabel.stringValue = charCountText(item.text.count)
         legend.attributedStringValue = pasteLegend(
             highlightReflow: TerminalText.looksLikeTerminalOutput(item.text))
@@ -162,9 +153,14 @@ final class BezelView: NSVisualEffectView {
         var reflow = normal
         if highlightReflow { reflow[.foregroundColor] = NSColor.labelColor }
 
+        // The `/` hint is dimmed like a secondary action — it switches modes
+        // rather than pasting, so it reads as distinct from the three paste keys.
+        let hint: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.tertiaryLabelColor]
+
         let line = NSMutableAttributedString()
         line.append(NSAttributedString(string: "⏎ plain      ⌥⏎ formatted      ", attributes: normal))
         line.append(NSAttributedString(string: "⇧⏎ reflow", attributes: reflow))
+        line.append(NSAttributedString(string: "      / search", attributes: hint))
         return line
     }
 
@@ -180,34 +176,5 @@ final class BezelView: NSVisualEffectView {
         while let f = s.first, f == "\n" || f == "\r" { s = s.dropFirst() }
         while let l = s.last, l.isWhitespace { s = s.dropLast() }
         return String(s)
-    }
-
-    /// App display name for a bundle id, memoised — `update` runs on every ← / →
-    /// keystroke, so the (synchronous) Launch Services / filesystem lookup must not
-    /// repeat per navigation. An empty cached value means "no resolvable name".
-    private var appNameCache: [String: String] = [:]
-    private func appName(for bundleID: String?) -> String? {
-        guard let bundleID else { return nil }
-        if let cached = appNameCache[bundleID] { return cached.isEmpty ? nil : cached }
-        let resolved = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID).map {
-            FileManager.default.displayName(atPath: $0.path).replacingOccurrences(of: ".app", with: "")
-        }
-        appNameCache[bundleID] = resolved ?? ""
-        return resolved
-    }
-
-    /// A resizable rounded-rect mask (opaque inside, transparent outside) for the
-    /// visual effect view's `maskImage`, so the material is clipped to clean rounded
-    /// corners with no fringe.
-    private static func roundedMaskImage(radius: CGFloat) -> NSImage {
-        let side = radius * 2 + 1
-        let image = NSImage(size: NSSize(width: side, height: side), flipped: false) { rect in
-            NSColor.black.setFill()
-            NSBezierPath(roundedRect: rect, xRadius: radius, yRadius: radius).fill()
-            return true
-        }
-        image.capInsets = NSEdgeInsets(top: radius, left: radius, bottom: radius, right: radius)
-        image.resizingMode = .stretch
-        return image
     }
 }

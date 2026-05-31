@@ -10,6 +10,8 @@ enum Settings {
         static let arrowDirection = "arrowDirection"
         static let keepFormatting = "keepFormatting"
         static let maxClipBytes = "maxClipBytes"
+        static let bezelAppearance = "bezelAppearance"
+        static let bezelSolidness = "bezelSolidness"
     }
 
     static let allowedHistorySizes = [10, 20, 40, 80]
@@ -79,5 +81,37 @@ enum Settings {
     static var keepFormatting: Bool {
         get { defaults.object(forKey: Key.keepFormatting) as? Bool ?? true }
         set { defaults.set(newValue, forKey: Key.keepFormatting) }
+    }
+
+    /// How the bezel/search card renders its translucent material regardless of the
+    /// desktop behind it. Defaults to `.dark` — the material samples what's behind
+    /// the window, so over a light desktop an auto card washes out; forcing dark
+    /// keeps it legible everywhere (like the system volume HUD). Raw strings only;
+    /// the AppKit mapping lives in `BezelEffectView`.
+    enum BezelAppearance: String, CaseIterable {
+        case dark, light, auto
+    }
+
+    static let defaultBezelAppearance: BezelAppearance = .dark
+
+    static var bezelAppearance: BezelAppearance {
+        get {
+            defaults.string(forKey: Key.bezelAppearance)
+                .flatMap(BezelAppearance.init(rawValue:)) ?? defaultBezelAppearance
+        }
+        set { defaults.set(newValue.rawValue, forKey: Key.bezelAppearance) }
+    }
+
+    /// How solid the bezel card is: `0` = fully translucent (pure material, the
+    /// classic look), `1` = a near-opaque surface with guaranteed contrast on any
+    /// background. Anything between blends the two. Defaults to translucent.
+    static let defaultBezelSolidness = 0.0
+
+    static var bezelSolidness: Double {
+        get {
+            guard defaults.object(forKey: Key.bezelSolidness) != nil else { return defaultBezelSolidness }
+            return min(max(defaults.double(forKey: Key.bezelSolidness), 0), 1)
+        }
+        set { defaults.set(min(max(newValue, 0), 1), forKey: Key.bezelSolidness) }
     }
 }

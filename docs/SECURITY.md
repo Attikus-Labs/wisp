@@ -72,10 +72,12 @@ balloon Wisp's footprint — and both bounds are user-controlled in the menu:
 ## Network
 
 Wisp contains **no networking code** and ships with **no network entitlement**.
-It does not check for updates, send analytics, or sync. Updates are delivered
-out-of-band via Homebrew / GitHub Releases, so the running app never needs the
-network. You can verify this — grep the source for `URLSession`, `Network`,
-`socket`; there are none.
+It runs no in-app update check, sends no analytics, and never syncs. The menu's
+**Check for Updates…** simply opens this repository's GitHub releases page in
+your browser — *Wisp itself* makes no network request; the browser does. Updates
+are delivered out-of-band via Homebrew / GitHub Releases, so the running app
+never needs the network. You can verify this — grep the source for `URLSession`,
+`Network`, `socket`; there are none.
 
 ## Permissions
 

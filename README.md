@@ -17,9 +17,9 @@ from a web answer, raw Markdown from a **Copy** button — and Wisp gives you th
 controls to keep exactly the formatting you want.
 
 Press **⌘⇧V** and a translucent bezel shows your most recent clipping; **←/→**
-walk through the last 40; then pick how it lands: **⏎** plain, **⌥⏎** formatted,
-**⇧⏎** reflowed. It's the classic Jumpcut/Flycut bezel, rebuilt natively for
-Apple Silicon, with a security-first design.
+walk through the last 40, or press **/** to search the whole history; then pick
+how it lands: **⏎** plain, **⌥⏎** formatted, **⇧⏎** reflowed. It's the classic
+Jumpcut/Flycut bezel, rebuilt natively for Apple Silicon, with a security-first design.
 
 > **Why this exists.** [Flycut](https://github.com/TermiT/Flycut) — the clipboard
 > manager a lot of us have used for a decade — hasn't had a real update since
@@ -96,6 +96,20 @@ so it's opt-in per paste and **never** rewrites your saved history. The bezel br
 the `⇧⏎ reflow` hint only when the current clip actually looks like terminal output, so
 it stays out of the way the rest of the time.
 
+## Search your history
+
+Press **/** on the bezel (vi-style) and it turns into a search box over everything
+in memory. Type to filter — matching is word-aware and supports multiple terms, so
+`google cli` finds clips containing **both** words (in any order), with the matched
+text highlighted in each result and a live preview of the highlighted clip below the
+list. Move the highlight with **↑/↓** (or **⌃P/⌃N**) and paste it with the same three
+keys — **⏎** plain, **⌥⏎** formatted, **⇧⏎** reflowed. **⎋** clears the query, then
+steps back to the carousel.
+
+Search only ever reads what's already in memory: nothing is indexed or written to
+disk, and passwords / transient copies are filtered out *before* they're ever
+stored, so they can never appear in results.
+
 ## Features
 
 - **The bezel you know.** One clip at a time, arrows cycle history (looping; direction configurable), `⏎` to
@@ -166,6 +180,7 @@ prompts**.
 | Key | Action |
 |-----|--------|
 | **⌘⇧V** | Show / hide the bezel |
+| **/** | Search the whole history — type to filter (word-aware, multi-term), **↑↓** (or **⌃P/⌃N**) move the highlight, **⏎ / ⌥⏎ / ⇧⏎** paste it, **⎋** clears the query then returns to the carousel |
 | **←** or **↑** | Previous (older) entry — loops past the oldest |
 | **→** or **↓** | Next (newer) entry — loops past the newest |
 | **⏎** | Paste the current entry into the app you came from (plain text) |
