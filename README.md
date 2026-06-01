@@ -72,9 +72,8 @@ in order of fidelity:
 
 Rich targets (Slack, Notes, Mail) get the formatting; plain-text editors (Sublime,
 Obsidian) read the plain-text flavor on the same clip and still get clean text. The
-captured source HTML is held **in memory only** — never written to disk, kept within
-the per-clip size budget you set ([Memory & limits](#memory--limits), default 2 MB),
-and fully opt-out via menu → *Keep Source Formatting*.
+captured source HTML is held **in memory only** — never written to disk, and kept
+within the per-clip size budget you set ([Memory & limits](#memory--limits), default 2 MB).
 
 ### ⇧⏎ — Reflowed
 
@@ -117,9 +116,8 @@ stored, so they can never appear in results.
 - **Three ways to paste.** `⏎` plain, `⌥⏎` formatted, `⇧⏎` reflowed — pick how each
   clip lands so AI output keeps the formatting you want. See
   [Three ways to paste](#three-ways-to-paste) above for exactly what each supports.
-  The optional source HTML formatted paste relies on is held **in memory only** —
-  never written to disk — and you can turn it off (menu → *Keep Source Formatting*)
-  for a strictly plain-text history.
+  The source HTML formatted paste relies on is held **in memory only** — never
+  written to disk, and bounded by the per-clip size budget you set.
 - **Native & light.** Swift + AppKit, a single tiny native binary, no Dock
   icon — it lives in the menu bar. No Electron, no web view.
 - **Zero third-party dependencies.** The only code that touches your clipboard
@@ -192,8 +190,7 @@ prompts**.
 Menu-bar menu: show clipboard, clear history, history size (10/20/40/80), **Max Clip
 Size** (per-clip memory budget — 1/2/5/10/50 MB or Unlimited, default 2 MB; applies to
 text and captured HTML), arrow direction (which arrow walks back to previous copies),
-**Keep Source Formatting** (retain source HTML in memory for `⌥⏎`; on by default),
-launch at login, and the Accessibility toggle.
+launch at login, and the Auto-Paste Permission (Accessibility) status.
 
 ## Security
 

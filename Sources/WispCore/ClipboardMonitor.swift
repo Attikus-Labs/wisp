@@ -67,15 +67,14 @@ final class ClipboardMonitor {
         let cap = Settings.maxClipBytes
         if cap != Settings.unlimitedClipBytes, text.utf8.count > cap { return }
 
-        // Optionally keep the source's rich HTML in memory (for ⌥⏎ formatted paste).
-        // Only reached for non-ignored items, so passwords/transient copies are
-        // already excluded by the privacy filter above. Skip blank HTML (would paste
-        // as an empty rich flavor) and hold it to the same per-clip budget — HTML over
-        // the cap is dropped, the entry stays plain text, and ⌥⏎ falls back to Markdown
-        // synthesis, so one giant rich clip can't bloat RAM.
+        // Keep the source's rich HTML in memory (for ⌥⏎ formatted paste). Only reached
+        // for non-ignored items, so passwords/transient copies are already excluded by
+        // the privacy filter above. Skip blank HTML (would paste as an empty rich
+        // flavor) and hold it to the same per-clip budget — HTML over the cap is
+        // dropped, the entry stays plain text, and ⌥⏎ falls back to Markdown synthesis,
+        // so one giant rich clip can't bloat RAM.
         var html: String?
-        if Settings.keepFormatting,
-           let h = pasteboard.string(forType: .html),
+        if let h = pasteboard.string(forType: .html),
            !h.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
            cap == Settings.unlimitedClipBytes || h.utf8.count <= cap {
             html = h

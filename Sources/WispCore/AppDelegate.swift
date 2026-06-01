@@ -16,7 +16,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var sizeItems: [NSMenuItem] = []
     private var maxClipItems: [NSMenuItem] = []
     private var directionItems: [NSMenuItem] = []
-    private var keepFormattingItem: NSMenuItem?
     private var appearanceItems: [NSMenuItem] = []
 
     override init() {
@@ -138,13 +137,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         dirParent.submenu = dirMenu
         menu.addItem(dirParent)
 
-        // Keep the source app's formatting in memory so ⌥⏎ pastes it faithfully.
-        let keepFormatting = NSMenuItem(title: "Keep Source Formatting (⌥⏎)",
-                                        action: #selector(toggleKeepFormatting), keyEquivalent: "")
-        keepFormatting.target = self
-        menu.addItem(keepFormatting)
-        keepFormattingItem = keepFormatting
-
         // Bezel appearance — force the card's shade so the translucent material
         // stays legible over any desktop (default Dark).
         let appearanceParent = NSMenuItem(title: "Bezel Appearance", action: nil, keyEquivalent: "")
@@ -180,7 +172,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(launch)
         launchItem = launch
 
-        let accessibility = NSMenuItem(title: "Enable Paste (Accessibility)…",
+        let accessibility = NSMenuItem(title: "Grant Auto-Paste Permission…",
                                        action: #selector(openAccessibility), keyEquivalent: "")
         accessibility.target = self
         menu.addItem(accessibility)
@@ -229,10 +221,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         guard let raw = sender.representedObject as? String,
               let direction = Settings.ArrowDirection(rawValue: raw) else { return }
         Settings.previousArrow = direction
-    }
-
-    @objc private func toggleKeepFormatting() {
-        Settings.keepFormatting.toggle()
     }
 
     @objc private func changeBezelAppearance(_ sender: NSMenuItem) {
@@ -314,7 +302,6 @@ extension AppDelegate: NSMenuDelegate {
             let raw = item.representedObject as? String
             item.state = (raw == Settings.previousArrow.rawValue) ? .on : .off
         }
-        keepFormattingItem?.state = Settings.keepFormatting ? .on : .off
         for item in appearanceItems {
             let raw = item.representedObject as? String
             item.state = (raw == Settings.bezelAppearance.rawValue) ? .on : .off
@@ -322,10 +309,10 @@ extension AppDelegate: NSMenuDelegate {
         launchItem?.state = isLaunchAtLoginEnabled ? .on : .off
 
         if AccessibilityAuthorizer.isTrusted {
-            accessibilityItem?.title = "Paste Enabled ✓"
+            accessibilityItem?.title = "Auto-Paste Permission: ✓"
             accessibilityItem?.isEnabled = false
         } else {
-            accessibilityItem?.title = "Enable Paste (Accessibility)…"
+            accessibilityItem?.title = "Grant Auto-Paste Permission…"
             accessibilityItem?.isEnabled = true
         }
     }

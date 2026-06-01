@@ -1,15 +1,15 @@
 import Foundation
 
 /// One remembered clipboard entry. The canonical content is always plain text
-/// (like Flycut) — no images or files are ever retained. Optionally, when "Keep
-/// Source Formatting" is on, the source app's own HTML is held *in memory* too, so
-/// a formatted paste (⌥⏎) can reproduce the original formatting faithfully. That
-/// HTML is never written to disk and never leaves the Mac; it is opt-out via the
-/// menu. Everything here lives only in memory.
+/// (like Flycut) — no images or files are ever retained. When the source app
+/// also offers HTML, it is held *in memory* too, so a formatted paste (⌥⏎) can
+/// reproduce the original formatting faithfully. That HTML is never written to
+/// disk and never leaves the Mac. Everything here lives only in memory.
 struct ClipboardItem: Equatable {
     let text: String
-    /// The source's rich HTML, captured at copy time when present and allowed.
-    /// `nil` for plain copies or when formatting capture is disabled.
+    /// The source's rich HTML, captured at copy time when the source app provides
+    /// it. `nil` for plain copies, or when that HTML is blank or over the per-clip
+    /// size budget.
     let html: String?
     let sourceBundleID: String?
 
