@@ -8,7 +8,6 @@ enum Settings {
     private enum Key {
         static let historySize = "historySize"
         static let arrowDirection = "arrowDirection"
-        static let keepFormatting = "keepFormatting"
         static let maxClipBytes = "maxClipBytes"
         static let bezelAppearance = "bezelAppearance"
         static let bezelSolidness = "bezelSolidness"
@@ -72,15 +71,6 @@ enum Settings {
                 .flatMap(ArrowDirection.init(rawValue:)) ?? defaultArrowDirection
         }
         set { defaults.set(newValue.rawValue, forKey: Key.arrowDirection) }
-    }
-
-    /// Whether to also keep the source app's rich HTML in memory, so a formatted
-    /// paste (⌥⏎) can reproduce the original formatting (e.g. select-and-copy from
-    /// Claude). Default on. Turn off for a strictly plain-text history. Only the
-    /// preference is persisted — never any clipboard content.
-    static var keepFormatting: Bool {
-        get { defaults.object(forKey: Key.keepFormatting) as? Bool ?? true }
-        set { defaults.set(newValue, forKey: Key.keepFormatting) }
     }
 
     /// How the bezel/search card renders its translucent material regardless of the

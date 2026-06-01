@@ -35,13 +35,12 @@ This is belt-and-suspenders: even if a password manager forgets to set a
 concealed marker, its bundle id is on the denylist.
 
 The canonical content is always **plain text**; images and files are never read or
-retained. When *Keep Source Formatting* is on (the default), Wisp also keeps the
-source app's **HTML** representation **in memory** so a formatted paste (`⌥⏎`) can
-reproduce the original formatting — subject to the same privacy filter above, never
-written to disk, and never parsed by Wisp (it is re-emitted verbatim on paste; the
-HTML→RTF conversion that *would* invoke a network-capable importer runs only on
-Wisp's own synthesized Markdown, never on captured source HTML). Turn the menu
-option off for a strictly plain-text history.
+retained. Wisp also keeps the source app's **HTML** representation **in memory** so a
+formatted paste (`⌥⏎`) can reproduce the original formatting — subject to the same
+privacy filter above, never written to disk, and never parsed by Wisp (it is
+re-emitted verbatim on paste; the HTML→RTF conversion that *would* invoke a
+network-capable importer runs only on Wisp's own synthesized Markdown, never on
+captured source HTML).
 
 ## Memory budget
 
