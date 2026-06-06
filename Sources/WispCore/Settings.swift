@@ -11,6 +11,7 @@ enum Settings {
         static let maxClipBytes = "maxClipBytes"
         static let bezelAppearance = "bezelAppearance"
         static let bezelSolidness = "bezelSolidness"
+        static let pasteClearSeconds = "pasteClearSeconds"
     }
 
     static let allowedHistorySizes = [10, 20, 40, 80]
@@ -52,6 +53,29 @@ enum Settings {
     /// Menu label for a clip-size budget: "Unlimited" or whole-megabyte presets.
     static func clipSizeLabel(_ bytes: Int) -> String {
         bytes == unlimitedClipBytes ? "Unlimited" : "\(bytes / 1_000_000) MB"
+    }
+
+    /// Seconds after a paste before Wisp wipes the system pasteboard — shrinking the
+    /// window in which a pasted secret sits on the *shared* clipboard for any other app
+    /// to read. `0` = never clear (the default: auto-clearing surprises people who
+    /// expect to ⌘V again). The clear only fires if nothing else has touched the
+    /// clipboard since Wisp's paste, so it never clobbers a fresh copy (see `Paster`).
+    /// This mitigates, but cannot eliminate, the shared-pasteboard risk — docs/SECURITY.md.
+    static let allowedPasteClearSeconds = [0, 10, 30]
+    static let defaultPasteClearSeconds = 0
+
+    static var pasteClearSeconds: Int {
+        get {
+            guard let value = defaults.object(forKey: Key.pasteClearSeconds) as? Int,
+                  allowedPasteClearSeconds.contains(value) else { return defaultPasteClearSeconds }
+            return value
+        }
+        set { defaults.set(newValue, forKey: Key.pasteClearSeconds) }
+    }
+
+    /// Menu label for a paste-clear delay: "Never" or "10s".
+    static func pasteClearLabel(_ seconds: Int) -> String {
+        seconds == 0 ? "Never" : "\(seconds)s"
     }
 
     /// Which horizontal arrow steps to the *previous* (older) clip; the opposite

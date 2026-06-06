@@ -20,12 +20,20 @@ final class BezelPanel: NSPanel {
     var onKey: ((BezelKey) -> Void)?
 
     init(contentView: NSView) {
+        // `.nonactivatingPanel` lets the bezel become the KEY window — and receive
+        // keys (arrows, ⏎, Tab) — without activating Wisp over the app you're pasting
+        // into. So the bezel takes keyboard focus the instant it appears (no click
+        // needed), while the target form's app stays active in the background; the
+        // paste path re-targets it and sends ⌘V. Without this, an accessory app's
+        // borderless panel often orders-front-but-not-key on modern macOS, so keys
+        // go nowhere until you click it.
         super.init(contentRect: contentView.bounds,
-                   styleMask: [.borderless],
+                   styleMask: [.borderless, .nonactivatingPanel],
                    backing: .buffered,
                    defer: false)
         self.contentView = contentView
         isFloatingPanel = true
+        becomesKeyOnlyIfNeeded = false // become key on show, not only when a control is clicked
         level = .modalPanel
         isOpaque = false
         backgroundColor = .clear
@@ -34,6 +42,13 @@ final class BezelPanel: NSPanel {
         isMovableByWindowBackground = false
         animationBehavior = .utilityWindow
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        // Wisp's history can contain secrets, and the bezel/search HUD render clip
+        // text as plaintext. Exclude this window from screen capture so screenshots,
+        // screen recordings, and screen sharing can't scrape it. (Available since
+        // macOS 10.5; covers the search HUD too — BezelController reuses this panel,
+        // swapping its contentView rather than opening a second window.) Does NOT
+        // stop someone physically looking at the screen — see docs/SECURITY.md.
+        sharingType = .none
     }
 
     required init?(coder: NSCoder) {
