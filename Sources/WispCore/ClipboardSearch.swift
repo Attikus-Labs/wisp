@@ -2,9 +2,9 @@ import Foundation
 
 /// Pure, testable search over the in-memory clipboard history. Memory-only like
 /// everything else: this only ever reads the entries already held by
-/// `ClipboardHistory` — it builds no on-disk index and keeps no state. Passwords
-/// and transient copies were filtered out at capture (`PrivacyFilter`), so they
-/// can never appear in results.
+/// `ClipboardHistory` — it builds no on-disk index and keeps no state. The history
+/// is complete (secrets included — see `PrivacyFilter` and docs/SECURITY.md), so
+/// search spans everything in RAM; nothing is indexed or written to disk.
 ///
 /// Matching is **substring + word-aware, multi-term**, tuned for precision rather
 /// than cleverness — a clipboard search should find the clip you actually

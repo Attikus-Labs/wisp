@@ -68,7 +68,9 @@ final class BezelController: NSObject, NSWindowDelegate {
         view.applyStyle() // pick up any appearance/transparency change from the menu
         render()
         position(size: BezelView.size)
-        NSApp.activate(ignoringOtherApps: true)
+        // No NSApp.activate: the nonactivating panel takes key focus on its own (so
+        // Tab/arrows/⏎ work immediately) without stealing the target app's activation,
+        // so the form you're pasting into keeps its focus. Paster re-targets it on paste.
         panel.makeKeyAndOrderFront(nil)
         panel.makeFirstResponder(nil) // keys flow to the panel for carousel handling
         isShowing = true

@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var maxClipItems: [NSMenuItem] = []
     private var directionItems: [NSMenuItem] = []
     private var appearanceItems: [NSMenuItem] = []
+    private var pasteClearItems: [NSMenuItem] = []
 
     override init() {
         let history = ClipboardHistory(capacity: Settings.historySize)
@@ -120,6 +121,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         clipParent.submenu = clipMenu
         menu.addItem(clipParent)
 
+        // Post-paste pasteboard auto-clear — wipe the system clipboard N seconds after
+        // a paste so a pasted secret doesn't linger on the shared board (default Never).
+        let pasteClearParent = NSMenuItem(title: "Clear Clipboard After Paste", action: nil, keyEquivalent: "")
+        let pasteClearMenu = NSMenu()
+        pasteClearItems = Settings.allowedPasteClearSeconds.map { seconds in
+            let item = NSMenuItem(title: Settings.pasteClearLabel(seconds),
+                                  action: #selector(changePasteClear(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = seconds
+            pasteClearMenu.addItem(item)
+            return item
+        }
+        pasteClearParent.submenu = pasteClearMenu
+        menu.addItem(pasteClearParent)
+
         // Arrow direction submenu — which arrow walks back to previous copies.
         let dirParent = NSMenuItem(title: "Arrow Direction", action: nil, keyEquivalent: "")
         let dirMenu = NSMenu()
@@ -217,6 +233,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Settings.maxClipBytes = sender.tag
     }
 
+    @objc private func changePasteClear(_ sender: NSMenuItem) {
+        Settings.pasteClearSeconds = sender.tag
+    }
+
     @objc private func changeDirection(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String,
               let direction = Settings.ArrowDirection(rawValue: raw) else { return }
@@ -253,8 +273,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.informativeText = """
         \(AppInfo.tagline)
 
-        Memory-only clipboard history: nothing is written to disk and nothing \
-        ever leaves your Mac. Passwords and transient copies are ignored.
+        Memory-only clipboard history: it records everything you copy — secrets \
+        included — but keeps it only in RAM. Nothing is written to disk and nothing \
+        ever leaves your Mac.
 
         Open source · MIT License
         """
@@ -283,7 +304,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try SMAppService.mainApp.unregister()
             }
         } catch {
-            NSLog("Wisp: launch-at-login change failed: \(error.localizedDescription)")
+            // %{private}@ so the framework error is redacted in the system log
+            // regardless of macOS defaults. (This path never touches clipboard text —
+            // it reports an SMAppService failure — but we keep the log discipline tight.)
+            NSLog("Wisp: launch-at-login change failed: %{private}@", error.localizedDescription as NSString)
         }
     }
 }
@@ -297,6 +321,9 @@ extension AppDelegate: NSMenuDelegate {
         }
         for item in maxClipItems {
             item.state = (item.tag == Settings.maxClipBytes) ? .on : .off
+        }
+        for item in pasteClearItems {
+            item.state = (item.tag == Settings.pasteClearSeconds) ? .on : .off
         }
         for item in directionItems {
             let raw = item.representedObject as? String
