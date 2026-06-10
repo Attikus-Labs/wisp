@@ -73,6 +73,39 @@ class BezelEffectView: NSVisualEffectView {
         applyScrim()
     }
 
+    /// The label both previews show clip text in: wraps long paragraphs, fills
+    /// whatever height its container leaves it, and ellipsizes the last visible
+    /// line when the clip doesn't fit.
+    ///
+    /// The line-break mode is load-bearing: assigning any *truncating* mode to an
+    /// NSCell silently sets `wraps = false`, collapsing every paragraph to a
+    /// single clipped line — long logical lines (e.g. Claude Code's copy-on-select
+    /// output) would run out of view instead of wrapping. Only word-wrap keeps
+    /// `wraps = true`; `truncatesLastVisibleLine` supplies the ellipsis instead.
+    /// New preview surfaces should come through here so the trap stays fixed in
+    /// one place.
+    ///
+    /// No line cap (`maximumNumberOfLines = 0`): the container's bottom edge is
+    /// the cap, via the low vertical compression resistance yielding to the
+    /// container's required constraints. Callers bound the text they feed in with
+    /// `PreviewText.trimmed`, so layout cost stays trivial.
+    static func wrappingPreviewLabel(font: NSFont, wrapWidth: CGFloat) -> NSTextField {
+        let field = NSTextField(wrappingLabelWithString: "")
+        field.translatesAutoresizingMaskIntoConstraints = false
+        field.font = font
+        field.textColor = .labelColor
+        field.isSelectable = false
+        field.isBezeled = false
+        field.drawsBackground = false
+        field.allowsDefaultTighteningForTruncation = true
+        field.maximumNumberOfLines = 0
+        field.lineBreakMode = .byWordWrapping
+        field.cell?.truncatesLastVisibleLine = true
+        field.setContentCompressionResistancePriority(.defaultLow, for: .vertical)
+        field.preferredMaxLayoutWidth = wrapWidth
+        return field
+    }
+
     /// A resizable rounded-rect mask (opaque inside, transparent outside) for the
     /// visual effect view's `maskImage`, so the material is clipped to clean rounded
     /// corners with no fringe.
