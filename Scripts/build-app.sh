@@ -48,14 +48,39 @@ if [[ -f "$ROOT/Resources/MenuBarIcon.pdf" ]]; then
     cp "$ROOT/Resources/MenuBarIcon.pdf" "$APP/Contents/Resources/MenuBarIcon.pdf"
 fi
 
-# Ad-hoc sign with the Hardened Runtime. CI overrides SIGN_IDENTITY with a
-# Developer ID Application certificate for distributable builds.
-SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+# Sign with the Hardened Runtime. Identity, in priority order:
+#   1. SIGN_IDENTITY env — CI passes a Developer ID Application certificate;
+#      explicitly EMPTY means "ad-hoc, please" (the pre-dev-cert behavior —
+#      never silently substitute a personal cert for an empty CI secret);
+#   2. the local "Wisp Local Dev" certificate (Scripts/make-dev-cert.sh) —
+#      stable across rebuilds, so the TCC Accessibility grant sticks;
+#   3. ad-hoc — runs fine, but the signature is pinned to this build's hash,
+#      so the Accessibility grant goes stale on every reinstall.
+DEV_CERT="Wisp Local Dev"
+if [[ -n "${SIGN_IDENTITY+set}" ]]; then
+    SIGN_IDENTITY="${SIGN_IDENTITY:--}"
+elif security find-identity -v -p codesigning 2>/dev/null | grep -Fq "$DEV_CERT"; then
+    SIGN_IDENTITY="$DEV_CERT"
+else
+    SIGN_IDENTITY="-"
+    echo "⚠ Ad-hoc signing: the Accessibility grant goes stale on every reinstall"
+    echo "  (install.sh resets it for a clean re-prompt). Run Scripts/make-dev-cert.sh"
+    echo "  once to mint a stable identity that keeps the grant across rebuilds."
+fi
 echo "▸ Signing (identity: $SIGN_IDENTITY)..."
-codesign --force --options runtime \
+if ! codesign --force --options runtime \
     --entitlements "$ROOT/Resources/Wisp.entitlements" \
     --sign "$SIGN_IDENTITY" \
-    "$APP"
+    "$APP"; then
+    echo "✗ Signing failed." >&2
+    if [[ "$SIGN_IDENTITY" == "$DEV_CERT" ]]; then
+        echo "  The dev cert needs the login keychain unlocked — over SSH/headless," >&2
+        echo "  run: security unlock-keychain ~/Library/Keychains/login.keychain-db" >&2
+        echo "  Or build ad-hoc with SIGN_IDENTITY=- (the Accessibility grant then" >&2
+        echo "  goes stale on the next install)." >&2
+    fi
+    exit 1
+fi
 
 codesign --verify --verbose=2 "$APP"
 echo "✓ Built $APP"
