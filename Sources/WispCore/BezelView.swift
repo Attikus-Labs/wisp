@@ -16,7 +16,8 @@ final class BezelView: BezelEffectView {
     private let charLabel = NSTextField(labelWithString: "")
     private let divider = NSView()
     private let container = NSView()
-    private let body = NSTextField(wrappingLabelWithString: "")
+    private let body = BezelEffectView.wrappingPreviewLabel(
+        font: .systemFont(ofSize: 14), wrapWidth: BezelView.size.width - 32 - 24)
     private let legend = NSTextField(labelWithString: "")
 
     init() {
@@ -51,11 +52,8 @@ final class BezelView: BezelEffectView {
         container.layer?.backgroundColor = NSColor(white: 1, alpha: 0.05).cgColor
         container.translatesAutoresizingMaskIntoConstraints = false
 
-        configure(body, font: .systemFont(ofSize: 14), color: .labelColor)
-        body.maximumNumberOfLines = 11
-        body.lineBreakMode = .byTruncatingTail
-        body.cell?.truncatesLastVisibleLine = true
-        body.preferredMaxLayoutWidth = BezelView.size.width - 32 - 24
+        // body comes preconfigured from BezelEffectView.wrappingPreviewLabel —
+        // wrapping, container-capped, last-line ellipsis.
 
         configure(legend, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor)
         legend.maximumNumberOfLines = 1
@@ -113,7 +111,7 @@ final class BezelView: BezelEffectView {
     }
 
     func update(item: ClipboardItem, index: Int, count: Int) {
-        body.stringValue = previewText(item.text)
+        body.stringValue = PreviewText.trimmed(item.text)
         nav.attributedStringValue = navLine(index: index, count: count)
         appLabel.stringValue = AppDisplayName.resolve(item.sourceBundleID) ?? ""
         charLabel.stringValue = charCountText(item.text.count)
@@ -168,13 +166,4 @@ final class BezelView: BezelEffectView {
         count == 1 ? "1 char" : "\(count) chars"
     }
 
-    /// What to show in the container: keep leading spaces (so they're revealed
-    /// against the edge), but drop leading blank lines and all trailing whitespace,
-    /// which would only waste preview height. The full text is still what gets pasted.
-    private func previewText(_ text: String) -> String {
-        var s = Substring(text)
-        while let f = s.first, f == "\n" || f == "\r" { s = s.dropFirst() }
-        while let l = s.last, l.isWhitespace { s = s.dropLast() }
-        return String(s)
-    }
 }

@@ -38,7 +38,8 @@ final class SearchView: BezelEffectView {
     private let tableView = NSTableView()
     private let emptyLabel = NSTextField(labelWithString: "")
     private let previewContainer = NSView()
-    private let previewBody = NSTextField(wrappingLabelWithString: "")
+    private let previewBody = BezelEffectView.wrappingPreviewLabel(
+        font: .systemFont(ofSize: 13), wrapWidth: SearchView.size.width - 32 - 24)
     private let previewMeta = NSTextField(labelWithString: "")
     private let legend = NSTextField(labelWithString: "")
 
@@ -197,11 +198,9 @@ final class SearchView: BezelEffectView {
         previewContainer.layer?.backgroundColor = NSColor(white: 1, alpha: 0.05).cgColor
         previewContainer.translatesAutoresizingMaskIntoConstraints = false
 
-        configureLabel(previewBody, font: .systemFont(ofSize: 13), color: .labelColor)
-        previewBody.maximumNumberOfLines = 7
-        previewBody.lineBreakMode = .byTruncatingTail
-        previewBody.cell?.truncatesLastVisibleLine = true
-        previewBody.preferredMaxLayoutWidth = SearchView.size.width - 32 - 24
+        // previewBody comes preconfigured from BezelEffectView.wrappingPreviewLabel —
+        // wrapping, container-capped, last-line ellipsis. No line cap matters here
+        // most: the preview fills whatever height the list leaves it.
 
         configureLabel(previewMeta, font: .systemFont(ofSize: 11), color: .tertiaryLabelColor)
 
@@ -286,7 +285,7 @@ final class SearchView: BezelEffectView {
             legend.attributedStringValue = legendLine(highlightReflow: false, enabled: false)
             return
         }
-        previewBody.stringValue = Self.trimmedPreview(item.text)
+        previewBody.stringValue = PreviewText.trimmed(item.text)
         let source = AppDisplayName.resolve(item.sourceBundleID)
         let chars = item.text.count == 1 ? "1 char" : "\(item.text.count) chars"
         previewMeta.stringValue = [source, chars].compactMap { $0 }.joined(separator: "  ·  ")
@@ -311,16 +310,6 @@ final class SearchView: BezelEffectView {
         line.append(NSAttributedString(string: "⇧⏎ reflow", attributes: reflow))
         line.append(NSAttributedString(string: "      esc", attributes: dim))
         return line
-    }
-
-    /// Drop leading blank lines and trailing whitespace for the preview; keep
-    /// leading spaces on the first kept line (revealed against the edge), matching
-    /// the bezel's body treatment. Full text is still what gets pasted.
-    static func trimmedPreview(_ text: String) -> String {
-        var s = Substring(text)
-        while let f = s.first, f == "\n" || f == "\r" { s = s.dropFirst() }
-        while let l = s.last, l.isWhitespace { s = s.dropLast() }
-        return String(s)
     }
 
     private func configureLabel(_ field: NSTextField, font: NSFont, color: NSColor) {
