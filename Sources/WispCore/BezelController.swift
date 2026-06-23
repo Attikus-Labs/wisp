@@ -183,12 +183,16 @@ final class BezelController: NSObject, NSWindowDelegate {
     }
 
     private func position(size: NSSize) {
-        guard let screen = NSScreen.main else { return }
-        let visible = screen.visibleFrame
-        let origin = NSPoint(
-            x: visible.midX - size.width / 2,
-            y: visible.midY - size.height / 2 + visible.height * 0.08
-        )
+        let screens = NSScreen.screens.map {
+            BezelPlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame)
+        }
+        // Anchor on the screen under the mouse pointer — where the user's attention
+        // is. Deliberately not `NSScreen.main`, which for a non-activating accessory
+        // panel resolves to the wrong display across Sidecar / multi-monitor /
+        // per-display Spaces (the bug this fixes). Which *Space* the bezel lands on
+        // is orthogonal to geometry — that's the panel's `.canJoinAllSpaces` job.
+        guard let origin = BezelPlacement.origin(forSize: size, anchor: NSEvent.mouseLocation,
+                                                 screens: screens) else { return }
         panel.setFrame(NSRect(origin: origin, size: size), display: true)
     }
 
