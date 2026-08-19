@@ -139,25 +139,58 @@ enum ClipboardSearch {
         return p.isLowercase && chars[i].isUppercase
     }
 
+    /// How much of one line is returned as a snippet. A "line" in a clipboard clip
+    /// can be the entire clip — minified JSON, a base64 blob, a single-line log — and
+    /// the row that shows it is about sixty characters wide, so reading further buys
+    /// the user nothing.
+    static let maxPreviewLineChars = 500
+
     /// The single line of `text` containing `offset`, with leading whitespace
     /// trimmed for display, plus the character index in `text` where that returned
     /// line begins. The view subtracts `start` from each matched offset to place
     /// highlights within the snippet. With no match, pass `offset == 0` to get the
     /// first line.
+    ///
+    /// Walks by `String.Index` rather than materialising `Array(text)`: this runs once
+    /// per result on every keystroke, and turning a 2 MB clip into a `[Character]`
+    /// costs ~10ms — over two seconds across a full 200-entry history. Every walk here
+    /// is bounded: backwards by `offset` (which never exceeds `maxSearchableChars`),
+    /// forwards by `maxPreviewLineChars`.
     static func previewLine(for text: String, around offset: Int) -> (line: String, start: Int) {
-        let chars = Array(text)
-        guard !chars.isEmpty else { return ("", 0) }
-        let o = min(max(offset, 0), chars.count - 1)
+        guard !text.isEmpty else { return ("", 0) }
 
-        var start = o
-        while start > 0, chars[start - 1] != "\n", chars[start - 1] != "\r" { start -= 1 }
-        var end = o
-        while end < chars.count, chars[end] != "\n", chars[end] != "\r" { end += 1 }
+        // The character at `offset`, clamped into the string.
+        let position = text.index(text.startIndex, offsetBy: max(offset, 0),
+                                  limitedBy: text.endIndex).flatMap {
+            $0 == text.endIndex ? text.index(before: text.endIndex) : $0
+        } ?? text.index(before: text.endIndex)
 
-        var trimmedStart = start
-        while trimmedStart < end, chars[trimmedStart] == " " || chars[trimmedStart] == "\t" {
-            trimmedStart += 1
+        // Back up to the start of the line. "\r\n" is a single Character, so it has to
+        // be matched in its own right or a CRLF clip reads as one enormous line.
+        var lineStart = position
+        while lineStart > text.startIndex {
+            let previous = text.index(before: lineStart)
+            if isLineBreak(text[previous]) { break }
+            lineStart = previous
         }
-        return (String(chars[trimmedStart..<end]), trimmedStart)
+
+        // Leading indentation is dropped for display; it stops at the line's end
+        // because a newline is neither a space nor a tab.
+        var start = lineStart
+        while start < text.endIndex, text[start] == " " || text[start] == "\t" {
+            start = text.index(after: start)
+        }
+
+        var end = start
+        var length = 0
+        while end < text.endIndex, length < maxPreviewLineChars, !isLineBreak(text[end]) {
+            end = text.index(after: end)
+            length += 1
+        }
+        return (String(text[start..<end]), text.distance(from: text.startIndex, to: start))
+    }
+
+    private static func isLineBreak(_ c: Character) -> Bool {
+        c == "\n" || c == "\r" || c == "\r\n"
     }
 }

@@ -111,7 +111,7 @@ includes a hostile process already running on your Mac, weigh these:
 Because the history lives only in RAM, its size is bounded so a few huge copies can't
 balloon Wisp's footprint — and both bounds are user-controlled in the menu:
 
-- **Entry count** — the ring holds 10 / 20 / 40 / 80 entries (default 40).
+- **Entry count** — the ring holds 10 / 20 / 40 / 80 / 100 / 150 / 200 entries (default 40).
 - **Per-clip size cap** — a byte budget applied to **every field retained: the plain
   text *and* the captured HTML**. Default **2 MB**; selectable as 1 / 2 / 5 / 10 / 50 MB
   or *Unlimited* ([`ClipboardMonitor`](../Sources/WispCore/ClipboardMonitor.swift),
@@ -122,7 +122,7 @@ balloon Wisp's footprint — and both bounds are user-controlled in the menu:
 
 ## Data lifecycle
 
-- History is an in-memory ring of at most 40 entries (configurable 10–80), newest
+- History is an in-memory ring of at most 40 entries (configurable 10–200), newest
   first, held by [`ClipboardHistory`](../Sources/WispCore/ClipboardHistory.swift),
   with each entry bounded by the per-clip size cap above.
 - **Nothing is written to disk.** There is no database, no cache, no log of

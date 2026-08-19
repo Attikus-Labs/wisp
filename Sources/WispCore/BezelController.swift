@@ -67,7 +67,7 @@ final class BezelController: NSObject, NSWindowDelegate {
         panel.contentView = view
         view.applyStyle() // pick up any appearance/transparency change from the menu
         render()
-        position(size: BezelView.size)
+        position(preferredSize: BezelView.size)
         // No NSApp.activate: the nonactivating panel takes key focus on its own (so
         // Tab/arrows/⏎ work immediately) without stealing the target app's activation,
         // so the form you're pasting into keeps its focus. Paster re-targets it on paste.
@@ -92,7 +92,7 @@ final class BezelController: NSObject, NSWindowDelegate {
             panel.contentView = view
             let item = history[0] ?? ClipboardItem(text: "Bezel transparency preview")
             view.update(item: item, index: 0, count: max(history.count, 1))
-            position(size: BezelView.size)
+            position(preferredSize: BezelView.size)
             panel.orderFront(nil) // visible without becoming key, so the menu survives
             isPreview = true
         }
@@ -129,6 +129,37 @@ final class BezelController: NSObject, NSWindowDelegate {
         case .dismiss:     hide()
         case .delete:      deleteCurrent()
         case .search:      enterSearch()
+        // Reading a clip taller than the card: it scrolls, the card doesn't grow.
+        case .scrollUp:       scrollPreview(lines: -3)
+        case .scrollDown:     scrollPreview(lines: +3)
+        case .scrollPageUp:   scrollPreview(pages: -1)
+        case .scrollPageDown: scrollPreview(pages: +1)
+        case .scrollToStart:  scrollPreviewToEdge(start: true)
+        case .scrollToEnd:    scrollPreviewToEdge(start: false)
+        }
+    }
+
+    // Scrolling applies to whichever card is up: the carousel's preview or the
+    // search HUD's detail pane.
+
+    private func scrollPreview(lines: Int) {
+        switch mode {
+        case .browse: view.scrollPreview(lines: lines)
+        case .search: searchView.scrollPreview(lines: lines)
+        }
+    }
+
+    private func scrollPreview(pages: Int) {
+        switch mode {
+        case .browse: view.scrollPreview(pages: pages)
+        case .search: searchView.scrollPreview(pages: pages)
+        }
+    }
+
+    private func scrollPreviewToEdge(start: Bool) {
+        switch mode {
+        case .browse: view.scrollPreviewToEdge(start: start)
+        case .search: searchView.scrollPreviewToEdge(start: start)
         }
     }
 
@@ -182,7 +213,10 @@ final class BezelController: NSObject, NSWindowDelegate {
         view.update(item: item, index: index, count: history.count)
     }
 
-    private func position(size: NSSize) {
+    /// Place the panel, clamping the card to the screen it lands on. `preferredSize`
+    /// is what the card asks for; a small display gets a smaller card (its preview
+    /// scrolls) rather than a card hanging off the bottom of the screen.
+    private func position(preferredSize: NSSize) {
         let screens = NSScreen.screens.map {
             BezelPlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame)
         }
@@ -191,9 +225,10 @@ final class BezelController: NSObject, NSWindowDelegate {
         // panel resolves to the wrong display across Sidecar / multi-monitor /
         // per-display Spaces (the bug this fixes). Which *Space* the bezel lands on
         // is orthogonal to geometry — that's the panel's `.canJoinAllSpaces` job.
-        guard let origin = BezelPlacement.origin(forSize: size, anchor: NSEvent.mouseLocation,
-                                                 screens: screens) else { return }
-        panel.setFrame(NSRect(origin: origin, size: size), display: true)
+        guard let frame = BezelPlacement.frame(preferredSize: preferredSize,
+                                               anchor: NSEvent.mouseLocation,
+                                               screens: screens) else { return }
+        panel.setFrame(frame, display: true)
     }
 
     // MARK: - Search mode
@@ -206,7 +241,7 @@ final class BezelController: NSObject, NSWindowDelegate {
         searchView.clearQuery()
         panel.contentView = searchView
         searchView.applyStyle() // match the carousel's appearance/transparency
-        position(size: SearchView.size)
+        position(preferredSize: SearchView.size)
         searchView.focusQueryField()
         installSearchMonitor()
         updateResults()
@@ -221,7 +256,7 @@ final class BezelController: NSObject, NSWindowDelegate {
         index = 0
         panel.contentView = view
         render()
-        position(size: BezelView.size)
+        position(preferredSize: BezelView.size)
         panel.makeFirstResponder(nil) // hand keys back to the panel
     }
 
@@ -241,12 +276,16 @@ final class BezelController: NSObject, NSWindowDelegate {
 
     /// Turn a ranked result into a displayable row: a one-line snippet centred on
     /// the first match, with the matched characters emphasised, plus the source app.
+    /// The row's line count is added by the view for the rows actually on screen
+    /// (see `SearchView.Row`) — a row is one line by construction, so without that
+    /// count a 200-line clip and a one-liner look identical in the list.
     private func makeRow(_ result: ClipboardSearch.Result) -> SearchView.Row {
         let offset = result.matchedOffsets.first ?? 0
         let (line, start) = ClipboardSearch.previewLine(for: result.item.text, around: offset)
         let snippet = highlightedSnippet(line: line, lineStart: start, matched: result.matchedOffsets)
         let source = AppDisplayName.resolve(result.item.sourceBundleID) ?? ""
-        return SearchView.Row(item: result.item, snippet: snippet, source: source)
+        return SearchView.Row(item: result.item, snippet: snippet, source: source,
+                              matchedOffsets: result.matchedOffsets)
     }
 
     private func highlightedSnippet(line: String, lineStart: Int, matched: [Int]) -> NSAttributedString {
@@ -293,7 +332,31 @@ final class BezelController: NSObject, NSWindowDelegate {
     private func handleSearchKey(_ event: NSEvent) -> Bool {
         let mods = event.modifierFlags
         let control = mods.contains(.control)
-        switch Int(event.keyCode) {
+        let code = Int(event.keyCode)
+
+        // ⌥↑/⌥↓ scroll the preview pane and ⌘↑/⌘↓ jump to its ends, rather than moving
+        // the selection — the pane is where a long clip is read, and these are the
+        // same bindings as the carousel. Claimed before the plain arrows below, which
+        // match on key code alone. (⌘←/→ and ⇱/⇲ are left to the query field, where
+        // they're real editing keys; on a single-line field ⌘↑/⌘↓ only duplicate them.)
+        if code == kVK_UpArrow || code == kVK_DownArrow {
+            let up = code == kVK_UpArrow
+            if mods.contains(.option) {
+                searchView.scrollPreview(lines: up ? -3 : +3)
+                return true
+            }
+            if mods.contains(.command) {
+                searchView.scrollPreviewToEdge(start: up)
+                return true
+            }
+        }
+        switch code {
+        case kVK_PageUp:
+            searchView.scrollPreview(pages: -1)
+            return true
+        case kVK_PageDown:
+            searchView.scrollPreview(pages: +1)
+            return true
         case kVK_UpArrow:
             searchView.moveSelection(by: -1)
             return true

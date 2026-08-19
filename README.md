@@ -18,7 +18,9 @@ controls to keep exactly the formatting you want.
 
 Press **⌘⇧V** and a translucent bezel shows your most recent clipping; **←/→**
 walk through the last 40, or press **/** to search the whole history; then pick
-how it lands: **⏎** plain, **⌥⏎** formatted, **⇧⏎** reflowed. It's the classic
+how it lands: **⏎** plain, **⌥⏎** formatted, **⇧⏎** reflowed. Long clips wrap and
+scroll inside the card (**⌥↑/⌥↓**) — the bezel stays put instead of stretching off
+the screen. It's the classic
 Jumpcut/Flycut bezel, rebuilt natively for Apple Silicon, with a security-first design.
 
 > **Why this exists.** [Flycut](https://github.com/TermiT/Flycut) — the clipboard
@@ -132,7 +134,7 @@ Wisp it lives only in RAM and the search HUD is excluded from screen capture.
     on-screen text is visible) stated plainly — is in **[docs/SECURITY.md](docs/SECURITY.md)**.
   - **Memory-only, and you set the budget.** History lives in RAM, never on disk —
     quit Wisp (or reboot) and it's gone. Two bounds keep it light, both yours to
-    change in the menu: the number of entries (10/20/40/80, default 40) and a
+    change in the menu: the number of entries (10 – 200, default 40) and a
     **per-clip size cap** (default **2 MB**) that applies to every field Wisp retains —
     plain text *and* captured HTML. See [Memory & limits](#memory--limits).
   - **No network. At all.** Wisp has no networking code and no network
@@ -187,10 +189,11 @@ prompts**.
 | **⏎** | Paste the current entry into the app you came from (plain text) |
 | **⌥⏎** | Paste **with formatting** — reproduces the source's formatting (its HTML, if captured) or renders the clip's Markdown, for apps like Slack, Notes & Mail; plain-text editors still get plain text |
 | **⇧⏎** | Paste **reflowed** — best-effort cleanup of text copied from a terminal (e.g. Claude Code): strip ANSI, turn bullet/tree glyphs into lists, un-wrap hard-wrapped lines, then paste formatted |
+| **⌥↑ / ⌥↓** | Scroll the clip preview when the clip is taller than the card (⇞ / ⇟ by the page, ⌘↑ / ⌘↓ to its start / end). Works in the carousel and in search's preview pane — the card itself never grows past the screen |
 | **esc** | Dismiss |
 | **⌫** | Remove the current entry from history |
 
-Menu-bar menu: show clipboard, clear history, history size (10/20/40/80), **Max Clip
+Menu-bar menu: show clipboard, clear history, history size (10/20/40/80/100/150/200), **Max Clip
 Size** (per-clip memory budget — 1/2/5/10/50 MB or Unlimited, default 2 MB; applies to
 text and captured HTML), **Clear Clipboard After Paste** (Never/10s/30s — wipe the
 system clipboard after a paste so a pasted secret doesn't linger), arrow direction
@@ -206,7 +209,7 @@ model is in **[docs/SECURITY.md](docs/SECURITY.md)**. The short version:
 |---|---|
 | Secrets (passwords, codes) in history | **Recorded on purpose** — Wisp is a complete history — but contained: memory-only, no disk, no network, output-only, excluded from screen capture. Residual risks (shared pasteboard, on-screen visibility) are documented honestly in [SECURITY.md](docs/SECURITY.md) |
 | History persisted to disk | Never — memory-only; quit or reboot and it's gone |
-| Runaway memory use | Bounded on both axes you control: entry count (10/20/40/80) and a per-clip size cap (default 2 MB, covers text + captured HTML, up to Unlimited) — see [Memory & limits](#memory--limits) |
+| Runaway memory use | Bounded on both axes you control: entry count (10 – 200) and a per-clip size cap (default 2 MB, covers text + captured HTML, up to Unlimited) — see [Memory & limits](#memory--limits) |
 | Data leaving your machine | Impossible — no networking code, no network entitlement |
 | Supply-chain risk | Zero third-party dependencies |
 | Excess permissions | Accessibility only, only for paste; **not** sandboxed because auto-paste requires synthesizing keys into other apps (the same posture Maccy takes) |
@@ -217,7 +220,9 @@ Wisp's whole history lives in RAM (never on disk), so it's worth being deliberat
 about how much RAM it may use — and that knob is **yours**. There are two bounds, both
 in the menu:
 
-- **History size** — how many entries to keep: **10 / 20 / 40 / 80** (default 40).
+- **History size** — how many entries to keep: **10 / 20 / 40 / 80 / 100 / 150 / 200**
+  (default 40). The big rings are there when you want reach; pair them with a modest
+  per-clip cap so the worst case stays sane.
   Oldest entries fall off the end as new ones arrive; re-copying the same text just
   moves it back to the front instead of adding a duplicate.
 - **Max clip size** — a per-clip byte budget that applies to **every field Wisp
@@ -233,7 +238,7 @@ How the per-clip cap behaves:
 | **Unlimited** | No cap — Wisp keeps whatever you copy, however large. |
 
 So the worst-case memory for the history is roughly *history size × max clip size* (≈
-80 MB at the defaults, ≈ 4 GB at 80 × 50 MB), entirely under your control. Copying very
+80 MB at the defaults, ≈ 10 GB at 200 × 50 MB), entirely under your control. Copying very
 large texts is genuinely useful — diffs, logs, whole files — and Wisp lets you keep them
 when you decide that's worth the memory: just raise the cap. Prefer a featherweight
 clipboard? Drop it to 1 MB. Either way you're trading memory for history on purpose, not
@@ -262,6 +267,8 @@ Sources/
     ClipboardHistory.swift  ← 40-item, newest-first, memory-only ring
     GlobalHotkey.swift      ← ⌘⇧V via Carbon RegisterEventHotKey (no deps)
     Bezel*.swift            ← the borderless floating HUD + arrow navigation
+    ClipPreview.swift       ← the scrolling, wrapping clip preview both HUDs show
+    SearchView.swift        ← the "/" search HUD (list + preview pane)
     Paster.swift            ← sets the pasteboard, synthesizes ⌘V
     MarkdownRenderer.swift  ← Markdown → HTML for ⌥⏎ formatted paste (deps-free)
     TerminalText.swift      ← ⇧⏎ best-effort reflow of terminal copies (deps-free)

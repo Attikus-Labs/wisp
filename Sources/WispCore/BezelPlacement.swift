@@ -26,18 +26,40 @@ enum BezelPlacement {
         let visibleFrame: CGRect
     }
 
-    /// Bottom-left origin that centres `size` on the screen containing `anchor`,
-    /// nudged up by 8% of that screen's height so the bezel sits a touch above
-    /// centre. Falls back to the first screen when the anchor is inside none — the
-    /// mouse pointer is effectively always on some display, so this is just
+    /// Breathing room kept between the card and the edge of the usable screen area
+    /// when a card has to be clamped to fit.
+    static let margin: CGFloat = 16
+
+    /// The bezel's on-screen frame: `preferredSize` **clamped to fit** the screen
+    /// containing `anchor`, centred there and nudged up by 8% of that screen's
+    /// height so it sits a touch above centre.
+    ///
+    /// The clamp is what keeps a HUD on screen. The cards declare a fixed preferred
+    /// size, but a small display (or a big Dock) can leave less room than that, and
+    /// a card taller than the screen would hang off the bottom with its paste legend
+    /// out of view. Both clamping *and* the final nudge are pinned inside
+    /// `visibleFrame`, so the whole card is always visible — the content inside it
+    /// scrolls instead (see `ClipPreview`).
+    ///
+    /// Falls back to the first screen when the anchor is inside none — the mouse
+    /// pointer is effectively always on some display, so this is just
     /// belt-and-braces. Returns nil only when there are no screens at all.
-    static func origin(forSize size: CGSize, anchor: CGPoint, screens: [Screen]) -> CGPoint? {
+    static func frame(preferredSize: CGSize, anchor: CGPoint, screens: [Screen]) -> CGRect? {
         guard !screens.isEmpty else { return nil }
         let target = screens.first { $0.frame.contains(anchor) } ?? screens[0]
         let visible = target.visibleFrame
-        return CGPoint(
+
+        let size = CGSize(
+            width: min(preferredSize.width, max(visible.width - margin * 2, 1)),
+            height: min(preferredSize.height, max(visible.height - margin * 2, 1)))
+
+        var origin = CGPoint(
             x: visible.midX - size.width / 2,
-            y: visible.midY - size.height / 2 + visible.height * 0.08
-        )
+            y: visible.midY - size.height / 2 + visible.height * 0.08)
+        // Pin inside the usable area: on a short screen the 8% nudge would otherwise
+        // push the top of a full-height card under the menu bar.
+        origin.x = min(max(origin.x, visible.minX + margin), visible.maxX - margin - size.width)
+        origin.y = min(max(origin.y, visible.minY + margin), visible.maxY - margin - size.height)
+        return CGRect(origin: origin, size: size)
     }
 }

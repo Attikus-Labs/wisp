@@ -117,4 +117,40 @@ struct ClipboardSearchTests {
         #expect(line == "")
         #expect(start == 0)
     }
+
+    @Test func previewLineClampsAnOffsetPastTheEnd() {
+        let (line, start) = ClipboardSearch.previewLine(for: "first\nsecond", around: 999)
+        #expect(line == "second")
+        #expect(start == 6)
+    }
+
+    @Test func previewLineTreatsCRLFAsALineBreak() {
+        // "\r\n" is a single Character, so it has to be matched in its own right —
+        // otherwise a Windows-line-ending clip reads as one enormous line.
+        let (line, start) = ClipboardSearch.previewLine(for: "alpha\r\nbeta", around: 6)
+        #expect(line == "beta")
+        #expect(start == 6)
+    }
+
+    @Test func previewLineCapsAVeryLongLine() {
+        // A whole-clip "line" (minified JSON, a base64 blob) must not be walked in
+        // full: the row shows ~60 characters, and this runs per result per keystroke.
+        let long = String(repeating: "x", count: 50_000)
+        let (line, start) = ClipboardSearch.previewLine(for: long, around: 0)
+        #expect(line.count == ClipboardSearch.maxPreviewLineChars)
+        #expect(start == 0)
+    }
+
+    @Test func previewLineOffsetsStayAlignedWithSearchResults() {
+        // The contract the highlight math depends on: subtracting `start` from a
+        // matched offset indexes into the returned line.
+        let text = "header\n    let token = secretValue\ntrailer"
+        let result = ClipboardSearch.search("secretValue", in: items([text])).first!
+        let offset = result.matchedOffsets.first!
+        let (line, start) = ClipboardSearch.previewLine(for: text, around: offset)
+        let position = offset - start
+        #expect(position >= 0)
+        #expect(Array(line)[position] == "s")
+        #expect(line == "let token = secretValue")
+    }
 }
