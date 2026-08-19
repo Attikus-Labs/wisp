@@ -11,6 +11,14 @@ enum BezelKey {
     case dismiss     // esc
     case delete      // ⌫ : drop the current entry
     case search      // / : switch the bezel into search-the-history mode
+    // Reading a clip that's taller than the card. The card never grows past the
+    // screen, so these are how you see the rest of a long clip.
+    case scrollUp      // ⌥↑
+    case scrollDown    // ⌥↓
+    case scrollPageUp  // ⇞ (fn↑)
+    case scrollPageDown // ⇟ (fn↓)
+    case scrollToStart // ⌘↑ / ↖ (fn←)
+    case scrollToEnd   // ⌘↓ / ↘ (fn→)
 }
 
 /// Borderless floating panel that hosts the bezel. It overrides `canBecomeKey`
@@ -62,7 +70,33 @@ final class BezelPanel: NSPanel {
         // Which physical arrow walks *back* to previous copies is configurable
         // (menu → Arrow Direction). Up always pairs with Left, Down with Right.
         let leftIsOlder = Settings.previousArrow == .left
-        switch Int(event.keyCode) {
+        let mods = event.modifierFlags
+        let code = Int(event.keyCode)
+
+        // Modified vertical arrows scroll the preview instead of walking history —
+        // tested *before* the plain-arrow cases below, which match on key code alone
+        // and would otherwise fire on ⌥↑ / ⌘↓ as well.
+        if code == kVK_UpArrow || code == kVK_DownArrow {
+            let up = code == kVK_UpArrow
+            if mods.contains(.option) {
+                onKey?(up ? .scrollUp : .scrollDown)
+                return
+            }
+            if mods.contains(.command) {
+                onKey?(up ? .scrollToStart : .scrollToEnd)
+                return
+            }
+        }
+
+        switch code {
+        case kVK_PageUp:
+            onKey?(.scrollPageUp)
+        case kVK_PageDown:
+            onKey?(.scrollPageDown)
+        case kVK_Home:
+            onKey?(.scrollToStart)
+        case kVK_End:
+            onKey?(.scrollToEnd)
         case kVK_LeftArrow, kVK_UpArrow:
             onKey?(leftIsOlder ? .older : .newer)
         case kVK_RightArrow, kVK_DownArrow:
@@ -70,7 +104,6 @@ final class BezelPanel: NSPanel {
         case kVK_Return, kVK_ANSI_KeypadEnter:
             // ⇧ reflows terminal output then pastes formatted; ⌥ pastes with
             // formatting; plain ⏎ stays the default.
-            let mods = event.modifierFlags
             if mods.contains(.shift) {
                 onKey?(.pasteReflow)
             } else if mods.contains(.option) {

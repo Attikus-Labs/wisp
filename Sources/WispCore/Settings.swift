@@ -14,7 +14,13 @@ enum Settings {
         static let pasteClearSeconds = "pasteClearSeconds"
     }
 
-    static let allowedHistorySizes = [10, 20, 40, 80]
+    /// How many entries the ring keeps. The larger sizes trade RAM for reach —
+    /// worst-case memory is roughly `historySize × maxClipBytes`, so a big ring
+    /// pairs best with a modest per-clip cap (see `maxClipBytes`). Search stays
+    /// in-memory and linear over these: measured at the far end (200 entries of
+    /// 2 MB each) a keystroke costs ~12ms, and with ordinary clips it isn't
+    /// measurable.
+    static let allowedHistorySizes = [10, 20, 40, 80, 100, 150, 200]
     static let defaultHistorySize = 40
 
     static var historySize: Int {

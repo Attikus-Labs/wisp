@@ -7,8 +7,11 @@ import AppKit
 ///
 ///   • a search field row (magnifier · query · "3 / 7" counter);
 ///   • a scrolling result list, each row a one-line snippet with the matched text
-///     emphasised and the source app on the right; the selected row is accent-tinted;
-///   • a framed preview strip showing more of the highlighted clip;
+///     emphasised, and the source app plus the clip's line count on the right (so a
+///     one-line row never hides that the clip runs on); the selected row is
+///     accent-tinted;
+///   • a framed preview pane showing the highlighted clip — wrapped, scrollable, and
+///     scrolled to the first match, so a hit 30 lines into a clip is what you see;
 ///   • the same paste-shortcut legend as the bezel.
 ///
 /// The view renders only; selection is driven from `BezelController` via the keyDown
@@ -17,12 +20,28 @@ import AppKit
 final class SearchView: BezelEffectView {
     static let size = NSSize(width: 506, height: 524)
 
-    /// One displayable result: the entry to paste, its highlighted snippet, and the
-    /// source-app label.
+    /// One displayable result: the entry to paste, its highlighted snippet, the
+    /// character offsets that matched (so the preview can highlight and reveal them),
+    /// and the source app's name.
+    ///
+    /// The right-hand meta line (source · line count) is assembled in
+    /// `tableView(_:viewFor:)` rather than here, because counting a clip's lines
+    /// means scanning it: doing that for every result while rebuilding the list on
+    /// every keystroke cost ~21ms per keypress on a 200-entry ring of large clips.
+    /// The table only builds views for the rows on screen, so this way about eight
+    /// clips get scanned instead of two hundred.
     struct Row {
         let item: ClipboardItem
         let snippet: NSAttributedString
         let source: String
+        let matchedOffsets: [Int]
+
+        init(item: ClipboardItem, snippet: NSAttributedString, source: String, matchedOffsets: [Int] = []) {
+            self.item = item
+            self.snippet = snippet
+            self.source = source
+            self.matchedOffsets = matchedOffsets
+        }
     }
 
     /// Fired as the query text changes (drives re-filtering in the controller).
@@ -38,15 +57,22 @@ final class SearchView: BezelEffectView {
     private let tableView = NSTableView()
     private let emptyLabel = NSTextField(labelWithString: "")
     private let previewContainer = NSView()
-    private let previewBody = NSTextField(wrappingLabelWithString: "")
+    private let preview = ClipPreview(fontSize: 13)
     private let previewMeta = NSTextField(labelWithString: "")
     private let legend = NSTextField(labelWithString: "")
 
     private var rows: [Row] = []
+    /// Legend state, kept so the scroll hint can be toggled without re-deriving the
+    /// rest of the line: whether the highlighted clip looks like terminal output,
+    /// and whether anything is highlighted at all.
+    private var highlightReflow = false
+    private var hasSelection = false
 
     /// The list is sized to its content (capped) rather than filling the panel, so
     /// the preview can claim the leftover space. Updated in `show(rows:)`.
     private var listHeight: NSLayoutConstraint!
+    /// Floor for the preview pane, so the list can never squeeze it out of existence.
+    private let minPreviewHeight: CGFloat = 96
     /// Row unit = row height + inter-row spacing; the list shows up to this many
     /// rows before it scrolls.
     private let rowUnit: CGFloat = 32
@@ -125,6 +151,12 @@ final class SearchView: BezelEffectView {
         // (updatePreview/updateCounter run from the selection-change delegate.)
     }
 
+    // MARK: - Scrolling the preview (driven by BezelController)
+
+    func scrollPreview(lines: Int) { preview.scroll(lines: lines) }
+    func scrollPreview(pages: Int) { preview.scroll(pages: pages) }
+    func scrollPreviewToEdge(start: Bool) { preview.scrollToEdge(start: start) }
+
     // MARK: - Build
 
     private func buildSearchRow() {
@@ -197,27 +229,37 @@ final class SearchView: BezelEffectView {
         previewContainer.layer?.backgroundColor = NSColor(white: 1, alpha: 0.05).cgColor
         previewContainer.translatesAutoresizingMaskIntoConstraints = false
 
-        configureLabel(previewBody, font: .systemFont(ofSize: 13), color: .labelColor)
-        previewBody.maximumNumberOfLines = 7
-        previewBody.lineBreakMode = .byTruncatingTail
-        previewBody.cell?.truncatesLastVisibleLine = true
-        previewBody.preferredMaxLayoutWidth = SearchView.size.width - 32 - 24
+        // The hint only makes sense while there's something to scroll to.
+        preview.onOverflowChange = { [weak self] _ in self?.refreshLegend() }
 
         configureLabel(previewMeta, font: .systemFont(ofSize: 11), color: .tertiaryLabelColor)
 
         addSubview(previewContainer)
-        previewContainer.addSubview(previewBody)
+        previewContainer.addSubview(preview)
         previewContainer.addSubview(previewMeta)
     }
 
     private func buildLegend() {
         configureLabel(legend, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor)
         legend.alignment = .center
+        // One line, always: on a card clamped narrow the legend would otherwise wrap
+        // and eat the preview's height instead of ellipsising.
+        legend.maximumNumberOfLines = 1
+        legend.lineBreakMode = .byTruncatingTail
         addSubview(legend)
     }
 
     private func activateConstraints() {
         listHeight = scrollView.heightAnchor.constraint(equalToConstant: emptyListHeight)
+        // Deliberately below `fittingSizeCompression` (50): a window laid out with
+        // Auto Layout can never be smaller than its content view's fitting size, so
+        // any stronger height here would become a floor on the *window* — and on a
+        // short screen the card would grow past the display rather than clamping to
+        // it. At this priority the list still gets the height it asks for whenever
+        // there's room, and gives way to the preview's minimum when there isn't (it
+        // scrolls, so nothing is lost).
+        listHeight.priority = NSLayoutConstraint.Priority(
+            NSLayoutConstraint.Priority.fittingSizeCompression.rawValue - 1)
         NSLayoutConstraint.activate([
             listHeight,
             icon.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 18),
@@ -252,10 +294,14 @@ final class SearchView: BezelEffectView {
             previewContainer.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
             previewContainer.bottomAnchor.constraint(equalTo: legend.topAnchor, constant: -12),
 
-            previewBody.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 12),
-            previewBody.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 12),
-            previewBody.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -12),
-            previewBody.bottomAnchor.constraint(lessThanOrEqualTo: previewMeta.topAnchor, constant: -8),
+            previewContainer.heightAnchor.constraint(greaterThanOrEqualToConstant: minPreviewHeight),
+
+            // The preview fills the frame above the meta line; it has no intrinsic
+            // height, so a long clip scrolls rather than pushing the card taller.
+            preview.topAnchor.constraint(equalTo: previewContainer.topAnchor, constant: 12),
+            preview.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 12),
+            preview.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -12),
+            preview.bottomAnchor.constraint(equalTo: previewMeta.topAnchor, constant: -8),
 
             previewMeta.leadingAnchor.constraint(equalTo: previewContainer.leadingAnchor, constant: 12),
             previewMeta.trailingAnchor.constraint(equalTo: previewContainer.trailingAnchor, constant: -12),
@@ -280,24 +326,38 @@ final class SearchView: BezelEffectView {
     }
 
     private func updatePreview() {
-        guard let item = selectedItem else {
-            previewBody.stringValue = ""
+        guard let index = selectedIndex, rows.indices.contains(index) else {
+            preview.clear()
             previewMeta.stringValue = ""
-            legend.attributedStringValue = legendLine(highlightReflow: false, enabled: false)
+            highlightReflow = false
+            hasSelection = false
+            refreshLegend()
             return
         }
-        previewBody.stringValue = Self.trimmedPreview(item.text)
+        let row = rows[index]
+        let item = row.item
+        highlightReflow = TerminalText.looksLikeTerminalOutput(item.text)
+        hasSelection = true
+        // Highlight what matched and scroll it into view: a hit 30 lines down was
+        // invisible when the pane always rendered from the top of the clip.
+        preview.show(text: item.text, monospaced: highlightReflow, matchedOffsets: row.matchedOffsets)
         let source = AppDisplayName.resolve(item.sourceBundleID)
-        let chars = item.text.count == 1 ? "1 char" : "\(item.text.count) chars"
-        previewMeta.stringValue = [source, chars].compactMap { $0 }.joined(separator: "  ·  ")
-        legend.attributedStringValue = legendLine(
-            highlightReflow: TerminalText.looksLikeTerminalOutput(item.text), enabled: true)
+        previewMeta.stringValue = [source, ClipPreview.sizeSummary(item.text)]
+            .compactMap { $0 }.joined(separator: "  ·  ")
+        refreshLegend()
+    }
+
+    private func refreshLegend() {
+        legend.attributedStringValue = legendLine(highlightReflow: highlightReflow,
+                                                  enabled: hasSelection,
+                                                  scrollable: preview.overflows)
     }
 
     /// `↑↓ move    ⏎ plain   ⌥⏎ formatted   ⇧⏎ reflow    esc`. ⇧⏎ brightens when the
     /// highlighted clip looks like terminal output (where reflow helps); the paste
-    /// hints dim entirely when there's nothing to paste.
-    private func legendLine(highlightReflow: Bool, enabled: Bool) -> NSAttributedString {
+    /// hints dim entirely when there's nothing to paste; `⌥↕ scroll` joins the line
+    /// only when the highlighted clip is taller than the preview pane.
+    private func legendLine(highlightReflow: Bool, enabled: Bool, scrollable: Bool) -> NSAttributedString {
         let font = NSFont.systemFont(ofSize: 11, weight: .medium)
         let dim: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.tertiaryLabelColor]
         let base = enabled ? NSColor.secondaryLabelColor : NSColor.tertiaryLabelColor
@@ -309,18 +369,11 @@ final class SearchView: BezelEffectView {
         line.append(NSAttributedString(string: "↑↓ move      ", attributes: dim))
         line.append(NSAttributedString(string: "⏎ plain    ⌥⏎ formatted    ", attributes: normal))
         line.append(NSAttributedString(string: "⇧⏎ reflow", attributes: reflow))
+        if scrollable {
+            line.append(NSAttributedString(string: "      ⌥↕ scroll", attributes: dim))
+        }
         line.append(NSAttributedString(string: "      esc", attributes: dim))
         return line
-    }
-
-    /// Drop leading blank lines and trailing whitespace for the preview; keep
-    /// leading spaces on the first kept line (revealed against the edge), matching
-    /// the bezel's body treatment. Full text is still what gets pasted.
-    static func trimmedPreview(_ text: String) -> String {
-        var s = Substring(text)
-        while let f = s.first, f == "\n" || f == "\r" { s = s.dropFirst() }
-        while let l = s.last, l.isWhitespace { s = s.dropLast() }
-        return String(s)
     }
 
     private func configureLabel(_ field: NSTextField, font: NSFont, color: NSColor) {
@@ -366,7 +419,11 @@ extension SearchView: NSTableViewDataSource, NSTableViewDelegate {
         let id = NSUserInterfaceItemIdentifier("clipCell")
         let cell = (tableView.makeView(withIdentifier: id, owner: self) as? ClipCellView)
             ?? ClipCellView(identifier: id)
-        cell.configure(snippet: rows[row].snippet, source: rows[row].source)
+        // Assembled here, for visible rows only — see `Row`.
+        let entry = rows[row]
+        let meta = [entry.source.isEmpty ? nil : entry.source, ClipPreview.lineLabel(of: entry.item.text)]
+            .compactMap { $0 }.joined(separator: "  ·  ")
+        cell.configure(snippet: entry.snippet, meta: meta)
         return cell
     }
 
@@ -388,17 +445,17 @@ private final class AccentRowView: NSTableRowView {
     }
 }
 
-/// One result line: a highlighted one-line snippet on the left, the source app on
-/// the right.
+/// One result line: a highlighted one-line snippet on the left, the source app and
+/// the clip's line count on the right.
 private final class ClipCellView: NSTableCellView {
     private let snippetField = NSTextField(labelWithString: "")
-    private let sourceField = NSTextField(labelWithString: "")
+    private let metaField = NSTextField(labelWithString: "")
 
     init(identifier: NSUserInterfaceItemIdentifier) {
         super.init(frame: .zero)
         self.identifier = identifier
 
-        for field in [snippetField, sourceField] {
+        for field in [snippetField, metaField] {
             field.translatesAutoresizingMaskIntoConstraints = false
             field.isBezeled = false
             field.drawsBackground = false
@@ -408,20 +465,20 @@ private final class ClipCellView: NSTableCellView {
         }
         snippetField.font = .systemFont(ofSize: 13)
         snippetField.textColor = .labelColor
-        sourceField.font = .systemFont(ofSize: 11)
-        sourceField.textColor = .tertiaryLabelColor
-        sourceField.alignment = .right
-        sourceField.setContentHuggingPriority(.required, for: .horizontal)
-        sourceField.setContentCompressionResistancePriority(.required, for: .horizontal)
+        metaField.font = .systemFont(ofSize: 11)
+        metaField.textColor = .tertiaryLabelColor
+        metaField.alignment = .right
+        metaField.setContentHuggingPriority(.required, for: .horizontal)
+        metaField.setContentCompressionResistancePriority(.required, for: .horizontal)
         snippetField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         NSLayoutConstraint.activate([
             snippetField.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
             snippetField.centerYAnchor.constraint(equalTo: centerYAnchor),
-            snippetField.trailingAnchor.constraint(lessThanOrEqualTo: sourceField.leadingAnchor, constant: -10),
+            snippetField.trailingAnchor.constraint(lessThanOrEqualTo: metaField.leadingAnchor, constant: -10),
 
-            sourceField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            sourceField.centerYAnchor.constraint(equalTo: centerYAnchor),
+            metaField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            metaField.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
     }
 
@@ -429,8 +486,22 @@ private final class ClipCellView: NSTableCellView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func configure(snippet: NSAttributedString, source: String) {
-        snippetField.attributedStringValue = snippet
-        sourceField.stringValue = source
+    func configure(snippet: NSAttributedString, meta: String) {
+        // A label draws an attributed string with that string's *own* paragraph
+        // style, which defaults to word wrapping — so a snippet wider than the row
+        // wrapped and spilled over the row below it (rows are a fixed 30pt). The
+        // field's own `lineBreakMode` doesn't override that, so stamp the style on.
+        let line = NSMutableAttributedString(attributedString: snippet)
+        line.addAttribute(.paragraphStyle, value: Self.singleLine,
+                          range: NSRange(location: 0, length: line.length))
+        snippetField.attributedStringValue = line
+        metaField.stringValue = meta
     }
+
+    /// One line, ellipsised at the tail — see `configure`.
+    private static let singleLine: NSParagraphStyle = {
+        let style = NSMutableParagraphStyle()
+        style.lineBreakMode = .byTruncatingTail
+        return style
+    }()
 }
